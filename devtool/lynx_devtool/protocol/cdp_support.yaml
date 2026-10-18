@@ -27,5 +27,17 @@ Tracing:
 WhiteBoard:
   codegen: typed
 
-# GlobalProps stays on the legacy functions_map_ / Json::Value dispatch.
-# Leave it untyped until the whole domain is migrated at once.
+# validation: legacy keeps the old wire text (globalProps must be an object,
+# unavailable before decode when the TASM runner is missing). The domain-level
+# legacy block is gone: every method is typed. replace.yaml still carries the
+# method-level legacy errors.
+GlobalProps:
+  codegen: typed
+  validation: legacy
+  golden:
+    file: devtool/lynx_devtool/protocol/testdata/golden/GlobalProps.golden.jsonl
+    volatile:
+      - path: params.timestamp
+        kind: monotonic
+      - path: result.timestamp
+        kind: monotonic

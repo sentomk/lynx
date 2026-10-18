@@ -23,6 +23,14 @@ namespace lynx {
 namespace devtool {
 namespace protocol {
 
+namespace global_props {
+
+struct Changed;
+struct ChangedChangesItem;
+struct GetResult;
+struct ReplaceParams;
+}  // namespace global_props
+
 namespace white_board {
 
 struct GetSharedDataResult;
@@ -34,6 +42,32 @@ struct OnSharedDataUpdated;
 struct RemoveSharedDataParams;
 struct SetSharedDataParams;
 }  // namespace white_board
+
+namespace global_props {
+
+// GlobalProps.get result.
+struct GetResult {
+  Json::Value global_props{};
+  int64_t timestamp{};
+};
+
+// GlobalProps.replace params.
+struct ReplaceParams {
+  Json::Value global_props{};
+};
+
+// GlobalProps.changed.params.changes[].
+struct ChangedChangesItem {
+  std::string operation{};
+};
+
+// GlobalProps.changed event.
+struct Changed {
+  int64_t timestamp{};
+  std::vector<ChangedChangesItem> changes{};
+};
+
+}  // namespace global_props
 
 namespace white_board {
 
@@ -80,6 +114,64 @@ struct OnSharedDataUpdated {
 };
 
 }  // namespace white_board
+
+namespace global_props {
+
+// Decodes GlobalProps.replace params. Unknown fields are ignored. On failure
+// returns false and sets |error| to an InvalidParams message.
+bool Decode(const Json::Value& params, ReplaceParams* out, std::string* error);
+
+// Encodes the GlobalProps.get result object.
+Json::Value Encode(const GetResult& result);
+
+// Encodes a complete GlobalProps.changed event message.
+Json::Value Encode(const Changed& event);
+
+using DisableResponder = cdp::Responder<cdp::Empty>;
+using EnableResponder = cdp::Responder<cdp::Empty>;
+using GetResponder = cdp::Responder<GetResult>;
+using ReplaceResponder = cdp::Responder<cdp::Empty>;
+
+// Implemented by the GlobalProps domain. validation is legacy:
+// unmigrated methods take cdp::RawCall, and handler-validated
+// methods take cdp::Deferred so Decode runs after the thread hop.
+// Each method must reply through its responder.
+class Backend {
+ public:
+  virtual ~Backend() = default;
+  virtual void Disable(DisableResponder responder) = 0;
+  virtual void Enable(EnableResponder responder) = 0;
+  virtual void Get(GetResponder responder) = 0;
+  virtual void Replace(ReplaceResponder responder,
+                       cdp::Deferred<ReplaceParams> params) = 0;
+};
+
+// Dispatches GlobalProps methods to a Backend. Subclass it to filter
+// requests in PreDispatch.
+class Agent : public CDPDomainAgentBase {
+ public:
+  explicit Agent(std::unique_ptr<Backend> backend);
+  ~Agent() override;
+
+  void CallMethod(const std::shared_ptr<CDPResponder>& responder,
+                  const Json::Value& message) override;
+
+ protected:
+  // Runs before params are decoded. Return false after replying through
+  // |responder| to reject the request. Allows every request by default.
+  virtual bool PreDispatch(const std::string& method,
+                           const Json::Value& message,
+                           const std::shared_ptr<CDPResponder>& responder);
+
+ private:
+  std::unique_ptr<Backend> backend_;
+};
+
+// Wraps |backend| in an Agent. Returns nullptr when |backend| is null.
+std::unique_ptr<CDPDomainAgentBase> CreateAgent(
+    std::unique_ptr<Backend> backend);
+
+}  // namespace global_props
 
 namespace white_board {
 

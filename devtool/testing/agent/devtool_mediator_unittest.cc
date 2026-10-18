@@ -25,6 +25,7 @@
 #include "devtool/base_devtool/native/public/cdp_responder.h"
 #include "devtool/base_devtool/native/test/message_sender_mock.h"
 #include "devtool/base_devtool/native/test/mock_receiver.h"
+#include "devtool/lynx_devtool/agent/domain_agent/inspector_global_props_agent.h"
 #include "devtool/lynx_devtool/agent/inspector_default_executor.h"
 #include "devtool/lynx_devtool/agent/lynx_devtool_mediator.h"
 #include "devtool/lynx_devtool/agent/lynx_global_devtool_mediator.h"
@@ -1111,10 +1112,27 @@ TEST_F(DevToolMediatorTest, SetTag) {
   EXPECT_EQ(js_debugger->GetInspectorRuntimeObserver()->GetTag(), test_tag);
 }
 
+namespace {
+
+void CallGlobalProps(
+    const std::shared_ptr<devtool::LynxDevToolMediator>& mediator,
+    const std::shared_ptr<devtool::MessageSender>& sender, int id,
+    const char* method, const Json::Value& params) {
+  auto agent = devtool::protocol::global_props::CreateAgent(
+      std::make_unique<devtool::InspectorGlobalPropsAgent>(mediator));
+  Json::Value message(Json::objectValue);
+  message["id"] = id;
+  message["method"] = method;
+  message["params"] = params;
+  agent->CallMethod(std::make_shared<devtool::CDPResponder>(sender, id),
+                    message);
+}
+
+}  // namespace
+
 TEST_F(DevToolMediatorTest, GlobalPropsCommandsRunOnTasmThreadCase) {
-  devtool_mediator_->GlobalPropsEnable(
-      std::make_shared<devtool::CDPResponder>(message_sender_, 1),
-      Json::Value());
+  CallGlobalProps(devtool_mediator_, message_sender_, 1, "GlobalProps.enable",
+                  Json::Value());
   FlushTasmTasks();
   EXPECT_TRUE(devtool_mediator_->element_executor_->IsGlobalPropsEnabled());
   Json::Value res;
@@ -1124,15 +1142,13 @@ TEST_F(DevToolMediatorTest, GlobalPropsCommandsRunOnTasmThreadCase) {
   EXPECT_EQ(res["id"], 1);
   EXPECT_TRUE(res["result"].isObject());
 
-  devtool_mediator_->GlobalPropsDisable(
-      std::make_shared<devtool::CDPResponder>(message_sender_, 1),
-      Json::Value());
+  CallGlobalProps(devtool_mediator_, message_sender_, 1, "GlobalProps.disable",
+                  Json::Value());
   FlushTasmTasks();
   EXPECT_FALSE(devtool_mediator_->element_executor_->IsGlobalPropsEnabled());
 
-  devtool_mediator_->GlobalPropsGet(
-      std::make_shared<devtool::CDPResponder>(message_sender_, 2),
-      Json::Value());
+  CallGlobalProps(devtool_mediator_, message_sender_, 2, "GlobalProps.get",
+                  Json::Value());
   FlushTasmTasks();
   ASSERT_TRUE(reader.parse(
       devtool::MockReceiver::GetInstance().received_message_.second, res));
@@ -1144,9 +1160,8 @@ TEST_F(DevToolMediatorTest, GlobalPropsCommandsRunOnTasmThreadCase) {
 
   Json::Value replace_params(Json::ValueType::objectValue);
   replace_params["globalProps"]["key"] = "value";
-  devtool_mediator_->GlobalPropsReplace(
-      std::make_shared<devtool::CDPResponder>(message_sender_, 3),
-      replace_params);
+  CallGlobalProps(devtool_mediator_, message_sender_, 3, "GlobalProps.replace",
+                  replace_params);
   FlushTasmTasks();
   ASSERT_TRUE(reader.parse(
       devtool::MockReceiver::GetInstance().received_message_.second, res));
@@ -1163,24 +1178,20 @@ TEST_F(DevToolMediatorTest, GlobalPropsCommandsWhenTasmRunnerUnavailableCase) {
 
   std::vector<std::function<void()>> commands = {
       [&] {
-        devtool_mediator_->GlobalPropsEnable(
-            std::make_shared<devtool::CDPResponder>(message_sender_, 7),
-            Json::Value());
+        CallGlobalProps(devtool_mediator_, message_sender_, 7,
+                        "GlobalProps.enable", Json::Value());
       },
       [&] {
-        devtool_mediator_->GlobalPropsDisable(
-            std::make_shared<devtool::CDPResponder>(message_sender_, 7),
-            Json::Value());
+        CallGlobalProps(devtool_mediator_, message_sender_, 7,
+                        "GlobalProps.disable", Json::Value());
       },
       [&] {
-        devtool_mediator_->GlobalPropsGet(
-            std::make_shared<devtool::CDPResponder>(message_sender_, 7),
-            Json::Value());
+        CallGlobalProps(devtool_mediator_, message_sender_, 7,
+                        "GlobalProps.get", Json::Value());
       },
       [&] {
-        devtool_mediator_->GlobalPropsReplace(
-            std::make_shared<devtool::CDPResponder>(message_sender_, 7),
-            Json::Value());
+        CallGlobalProps(devtool_mediator_, message_sender_, 7,
+                        "GlobalProps.replace", Json::Value());
       },
   };
 

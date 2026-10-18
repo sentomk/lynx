@@ -5,36 +5,39 @@
 #ifndef DEVTOOL_LYNX_DEVTOOL_AGENT_DOMAIN_AGENT_INSPECTOR_GLOBAL_PROPS_AGENT_H_
 #define DEVTOOL_LYNX_DEVTOOL_AGENT_DOMAIN_AGENT_INSPECTOR_GLOBAL_PROPS_AGENT_H_
 
-#include <map>
 #include <memory>
 
-#include "devtool/base_devtool/native/public/cdp_domain_agent_base.h"
-#include "devtool/lynx_devtool/agent/agent_defines.h"
-#include "devtool/lynx_devtool/agent/lynx_devtool_mediator.h"
+#include "devtool/lynx_devtool/protocol/cdp_protocol.generated.h"
 
 namespace lynx {
 namespace devtool {
 
-class InspectorGlobalPropsAgent : public CDPDomainAgentBase {
+class InspectorTasmExecutor;
+class LynxDevToolMediator;
+
+// GlobalProps Backend. Register it wrapped by
+// protocol::global_props::CreateAgent. validation is legacy: replace decodes
+// after the TASM hop so a missing runner still reports "unavailable" before
+// a params error.
+class InspectorGlobalPropsAgent : public protocol::global_props::Backend {
  public:
   explicit InspectorGlobalPropsAgent(
       const std::shared_ptr<LynxDevToolMediator>& devtool_mediator);
   ~InspectorGlobalPropsAgent() override = default;
 
-  void CallMethod(const std::shared_ptr<CDPResponder>& responder,
-                  const Json::Value& message) override;
+  void Disable(protocol::global_props::DisableResponder responder) override;
+  void Enable(protocol::global_props::EnableResponder responder) override;
+  void Get(protocol::global_props::GetResponder responder) override;
+  void Replace(
+      protocol::global_props::ReplaceResponder responder,
+      cdp::Deferred<protocol::global_props::ReplaceParams> params) override;
 
  private:
-  using GlobalPropsAgentMethod = void (InspectorGlobalPropsAgent::*)(
-      const std::shared_ptr<CDPResponder>& responder,
-      const Json::Value& params);
+  // Runs |body| on the TASM thread. Replies "GlobalProps target is
+  // unavailable" when that thread has no runner.
+  template <typename Responder, typename Body>
+  void Run(const Responder& responder, Body body);
 
-  DECLARE_DEVTOOL_CDP_METHOD(Enable);
-  DECLARE_DEVTOOL_CDP_METHOD(Disable);
-  DECLARE_DEVTOOL_CDP_METHOD(Get);
-  DECLARE_DEVTOOL_CDP_METHOD(Replace);
-
-  std::map<std::string, GlobalPropsAgentMethod> functions_map_;
   const std::shared_ptr<LynxDevToolMediator> devtool_mediator_;
 };
 

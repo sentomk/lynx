@@ -200,11 +200,8 @@ class LynxDevToolMediator
   DECLARE_DEVTOOL_METHOD(LynxSendEventToVM)
   DECLARE_DEVTOOL_METHOD(GetScreenshot)
 
-  // GlobalProps domain -> tasm executor
-  DECLARE_DEVTOOL_CDP_METHOD(GlobalPropsEnable);
-  DECLARE_DEVTOOL_CDP_METHOD(GlobalPropsDisable);
-  DECLARE_DEVTOOL_CDP_METHOD(GlobalPropsGet);
-  DECLARE_DEVTOOL_CDP_METHOD(GlobalPropsReplace);
+  // GlobalProps domain. Commands are dispatched by InspectorGlobalPropsAgent.
+  // The observer still notifies a change through this method.
   void GlobalPropsChanged();
 
   // Template domain

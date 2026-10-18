@@ -356,19 +356,19 @@ domains:
       - name: disable
         origin: lynx-extension
         since: '4.3'
-        source: devtool/lynx_devtool/agent/domain_agent/inspector_global_props_agent.cc
+        source: devtool/lynx_devtool/protocol/custom_cdp_docs/GlobalProps/methods/disable.yaml
       - name: enable
         origin: lynx-extension
         since: '4.3'
-        source: devtool/lynx_devtool/agent/domain_agent/inspector_global_props_agent.cc
+        source: devtool/lynx_devtool/protocol/custom_cdp_docs/GlobalProps/methods/enable.yaml
       - name: get
         origin: lynx-extension
         since: '4.3'
-        source: devtool/lynx_devtool/agent/domain_agent/inspector_global_props_agent.cc
+        source: devtool/lynx_devtool/protocol/custom_cdp_docs/GlobalProps/methods/get.yaml
       - name: replace
         origin: lynx-extension
         since: '4.3'
-        source: devtool/lynx_devtool/agent/domain_agent/inspector_global_props_agent.cc
+        source: devtool/lynx_devtool/protocol/custom_cdp_docs/GlobalProps/methods/replace.yaml
     events:
       - name: changed
         origin: lynx-extension

@@ -4,51 +4,102 @@
 
 #include "devtool/lynx_devtool/agent/domain_agent/inspector_global_props_agent.h"
 
-#include "devtool/base_devtool/native/public/cdp_responder.h"
+#include <string>
+#include <utility>
+
+#include "devtool/lynx_devtool/agent/inspector_tasm_executor.h"
+#include "devtool/lynx_devtool/agent/lynx_devtool_mediator.h"
 
 namespace lynx {
 namespace devtool {
 
+namespace global_props = protocol::global_props;
+
 InspectorGlobalPropsAgent::InspectorGlobalPropsAgent(
     const std::shared_ptr<LynxDevToolMediator>& devtool_mediator)
-    : devtool_mediator_(devtool_mediator) {
-  functions_map_["GlobalProps.enable"] = &InspectorGlobalPropsAgent::Enable;
-  functions_map_["GlobalProps.disable"] = &InspectorGlobalPropsAgent::Disable;
-  functions_map_["GlobalProps.get"] = &InspectorGlobalPropsAgent::Get;
-  functions_map_["GlobalProps.replace"] = &InspectorGlobalPropsAgent::Replace;
-}
+    : devtool_mediator_(devtool_mediator) {}
 
-void InspectorGlobalPropsAgent::CallMethod(
-    const std::shared_ptr<CDPResponder>& responder,
-    const Json::Value& message) {
-  const std::string method = message["method"].asString();
-  auto iter = functions_map_.find(method);
-  if (iter == functions_map_.end()) {
-    responder->SendError(CDPErrorCode::MethodNotFound,
-                         "'" + method + "' wasn't found");
+template <typename Responder, typename Body>
+void InspectorGlobalPropsAgent::Run(const Responder& responder, Body body) {
+  if (!devtool_mediator_) {
+    responder.SendError(CDPErrorCode::ServerError,
+                        "GlobalProps target is unavailable");
     return;
   }
-  (this->*(iter->second))(responder, message["params"]);
+  const bool dispatched = devtool_mediator_->RunOnTASMThread(
+      [executor = devtool_mediator_->GetTasmExecutor(), responder,
+       body = std::move(body)] {
+        if (!executor) {
+          responder.SendError(CDPErrorCode::ServerError,
+                              "GlobalProps target is unavailable");
+          return;
+        }
+        body(*executor);
+      });
+  if (!dispatched) {
+    responder.SendError(CDPErrorCode::ServerError,
+                        "GlobalProps target is unavailable");
+  }
 }
 
 void InspectorGlobalPropsAgent::Enable(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  devtool_mediator_->GlobalPropsEnable(responder, params);
+    global_props::EnableResponder responder) {
+  Run(responder, [responder](InspectorTasmExecutor& executor) {
+    executor.SetGlobalPropsEnabled(true);
+    responder.SendSuccess();
+  });
 }
 
 void InspectorGlobalPropsAgent::Disable(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  devtool_mediator_->GlobalPropsDisable(responder, params);
+    global_props::DisableResponder responder) {
+  Run(responder, [responder](InspectorTasmExecutor& executor) {
+    executor.SetGlobalPropsEnabled(false);
+    responder.SendSuccess();
+  });
 }
 
-void InspectorGlobalPropsAgent::Get(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  devtool_mediator_->GlobalPropsGet(responder, params);
+void InspectorGlobalPropsAgent::Get(global_props::GetResponder responder) {
+  Run(responder, [responder](InspectorTasmExecutor& executor) {
+    global_props::GetResult result;
+    result.global_props = executor.CopyGlobalProps();
+    result.timestamp =
+        static_cast<int64_t>(executor.GetLastGlobalPropsTimestamp());
+    responder.SendSuccess(result);
+  });
 }
 
 void InspectorGlobalPropsAgent::Replace(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  devtool_mediator_->GlobalPropsReplace(responder, params);
+    global_props::ReplaceResponder responder,
+    cdp::Deferred<global_props::ReplaceParams> params) {
+  // The runner check happens before Get(), matching the old mediator: a
+  // missing TASM runner reports unavailable without looking at params.
+  if (!devtool_mediator_) {
+    responder.SendError(CDPErrorCode::ServerError,
+                        "GlobalProps target is unavailable");
+    return;
+  }
+  const bool dispatched = devtool_mediator_->RunOnTASMThread(
+      [executor = devtool_mediator_->GetTasmExecutor(), responder, params]() {
+        if (!executor) {
+          responder.SendError(CDPErrorCode::ServerError,
+                              "GlobalProps target is unavailable");
+          return;
+        }
+        const auto decoded = params.Get(responder);
+        if (!decoded) {
+          return;
+        }
+        std::string error;
+        if (!executor->ReplaceGlobalProps(decoded->global_props, &error)) {
+          responder.SendError(CDPErrorCode::ServerError, error);
+          return;
+        }
+        responder.SendSuccess();
+      });
+  if (!dispatched) {
+    responder.SendError(CDPErrorCode::ServerError,
+                        "GlobalProps target is unavailable");
+  }
 }
 
 }  // namespace devtool

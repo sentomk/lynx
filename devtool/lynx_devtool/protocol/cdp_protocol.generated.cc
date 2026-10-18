@@ -14,6 +14,15 @@ namespace lynx {
 namespace devtool {
 namespace protocol {
 
+namespace global_props {
+
+static Json::Value EncodeValue(const GetResult& value);
+static bool DecodeValue(const Json::Value& in, const std::string& path,
+                        ReplaceParams* out, std::string* error);
+static Json::Value EncodeValue(const ChangedChangesItem& value);
+static Json::Value EncodeValue(const Changed& value);
+}  // namespace global_props
+
 namespace white_board {
 
 static Json::Value EncodeValue(const GetSharedDataResultEntriesItem& value);
@@ -26,6 +35,45 @@ static Json::Value EncodeValue(const OnSharedDataAdded& value);
 static Json::Value EncodeValue(const OnSharedDataRemoved& value);
 static Json::Value EncodeValue(const OnSharedDataUpdated& value);
 }  // namespace white_board
+
+namespace global_props {
+
+static Json::Value EncodeValue(const GetResult& value) {
+  Json::Value out(Json::objectValue);
+  cdp::EncodeField(&out, "globalProps", value.global_props);
+  cdp::EncodeField(&out, "timestamp", value.timestamp);
+  return out;
+}
+
+static bool DecodeValue(const Json::Value& in, const std::string& path,
+                        ReplaceParams* out, std::string* error) {
+  if (!in.isObject()) {
+    return cdp::Fail(path, "expected object", error);
+  }
+  if (!cdp::DecodeField(in, "globalProps", path, &out->global_props, error)) {
+    return false;
+  }
+  if (!(cdp::CheckKinds(out->global_props, path + ".globalProps", cdp::kObject,
+                        error))) {
+    return false;
+  }
+  return true;
+}
+
+static Json::Value EncodeValue(const ChangedChangesItem& value) {
+  Json::Value out(Json::objectValue);
+  cdp::EncodeField(&out, "operation", value.operation);
+  return out;
+}
+
+static Json::Value EncodeValue(const Changed& value) {
+  Json::Value out(Json::objectValue);
+  cdp::EncodeField(&out, "timestamp", value.timestamp);
+  cdp::EncodeField(&out, "changes", value.changes);
+  return out;
+}
+
+}  // namespace global_props
 
 namespace white_board {
 
@@ -88,6 +136,79 @@ static Json::Value EncodeValue(const OnSharedDataUpdated& value) {
 }
 
 }  // namespace white_board
+
+namespace global_props {
+
+bool Decode(const Json::Value& params, ReplaceParams* out, std::string* error) {
+  return DecodeValue(params.isNull() ? cdp::EmptyObject() : params, "params",
+                     out, error);
+}
+
+Json::Value Encode(const GetResult& result) { return EncodeValue(result); }
+
+Json::Value Encode(const Changed& event) {
+  Json::Value message(Json::objectValue);
+  message["method"] = "GlobalProps.changed";
+  message["params"] = EncodeValue(event);
+  return message;
+}
+
+Agent::Agent(std::unique_ptr<Backend> backend) : backend_(std::move(backend)) {}
+
+Agent::~Agent() = default;
+
+bool Agent::PreDispatch(const std::string& method, const Json::Value& message,
+                        const std::shared_ptr<CDPResponder>& responder) {
+  return true;
+}
+
+constexpr cdp::LegacyError kReplaceLegacyErrors[] = {
+    {"globalProps", "type", CDPErrorCode::InvalidParams,
+     "globalProps must be an object"},
+    {"globalProps", "missing", CDPErrorCode::InvalidParams,
+     "globalProps must be an object"},
+    {"", "type", CDPErrorCode::InvalidParams, "globalProps must be an object"},
+};
+
+void Agent::CallMethod(const std::shared_ptr<CDPResponder>& responder,
+                       const Json::Value& message) {
+  const std::string method = message["method"].asString();
+  if (!PreDispatch(method, message, responder)) {
+    return;
+  }
+  if (method == "GlobalProps.disable") {
+    backend_->Disable(DisableResponder(responder));
+    return;
+  }
+  if (method == "GlobalProps.enable") {
+    backend_->Enable(EnableResponder(responder));
+    return;
+  }
+  if (method == "GlobalProps.get") {
+    backend_->Get(GetResponder(responder));
+    return;
+  }
+  if (method == "GlobalProps.replace") {
+    backend_->Replace(
+        ReplaceResponder(responder),
+        cdp::Deferred<ReplaceParams>(
+            message["params"], kReplaceLegacyErrors,
+            sizeof(kReplaceLegacyErrors) / sizeof(kReplaceLegacyErrors[0])));
+    return;
+  }
+  responder->SendError(CDPErrorCode::MethodNotFound,
+                       "'" + method + "' wasn't found");
+}
+
+std::unique_ptr<CDPDomainAgentBase> CreateAgent(
+    std::unique_ptr<Backend> backend) {
+  if (!backend) {
+    return nullptr;
+  }
+  return std::make_unique<Agent>(std::move(backend));
+}
+
+}  // namespace global_props
 
 namespace white_board {
 

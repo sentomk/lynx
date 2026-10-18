@@ -211,11 +211,12 @@ class InspectorTasmExecutor
   // DOM ScrollIntoViewIfNeeded
   DECLARE_DEVTOOL_METHOD(ScrollIntoViewIfNeeded)
 
-  // GlobalProps domain
-  DECLARE_DEVTOOL_CDP_METHOD(GlobalPropsEnable);
-  DECLARE_DEVTOOL_CDP_METHOD(GlobalPropsDisable);
-  DECLARE_DEVTOOL_CDP_METHOD(GlobalPropsGet);
-  DECLARE_DEVTOOL_CDP_METHOD(GlobalPropsReplace);
+  // GlobalProps domain. CDP dispatch lives on InspectorGlobalPropsAgent.
+  // CopyGlobalProps is an empty object when tasm is null.
+  Json::Value CopyGlobalProps() const;
+  // False when |global_props| is not an object or tasm is null. |error| is
+  // the legacy CDP message for that case.
+  bool ReplaceGlobalProps(const Json::Value& global_props, std::string* error);
   void GlobalPropsChanged();
 
   // WhiteBoard domain: the attached delegate, or nullptr. Unlike

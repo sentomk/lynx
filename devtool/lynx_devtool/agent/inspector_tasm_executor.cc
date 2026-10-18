@@ -36,6 +36,7 @@
 #include "devtool/lynx_devtool/agent/lynx_devtool_mediator.h"
 #include "devtool/lynx_devtool/element/element_helper.h"
 #include "devtool/lynx_devtool/element/helper_util.h"
+#include "devtool/lynx_devtool/protocol/cdp_protocol.generated.h"
 #include "devtool/lynx_devtool/shared_data/white_board_inspector_tasm_delegate.h"
 #include "third_party/modp_b64/modp_b64.h"
 #include "third_party/zlib/zlib.h"
@@ -1937,43 +1938,26 @@ void InspectorTasmExecutor::DOM_Focus(
   sender->SendMessage("CDP", response);
 }
 
-void InspectorTasmExecutor::GlobalPropsEnable(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  global_props_enabled_ = true;
-  responder->SendSuccess();
+Json::Value InspectorTasmExecutor::CopyGlobalProps() const {
+  return GetGlobalProps(tasm_);
 }
 
-void InspectorTasmExecutor::GlobalPropsDisable(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  global_props_enabled_ = false;
-  responder->SendSuccess();
-}
-
-void InspectorTasmExecutor::GlobalPropsGet(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  Json::Value result(Json::ValueType::objectValue);
-  result["globalProps"] = GetGlobalProps(tasm_);
-  result["timestamp"] =
-      static_cast<Json::Value::UInt64>(last_global_props_timestamp_ms_);
-  responder->SendSuccess(std::move(result));
-}
-
-void InspectorTasmExecutor::GlobalPropsReplace(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  const Json::Value& global_props = params["globalProps"];
+bool InspectorTasmExecutor::ReplaceGlobalProps(const Json::Value& global_props,
+                                               std::string* error) {
   if (!global_props.isObject()) {
-    responder->SendError(CDPErrorCode::InvalidParams,
-                         "globalProps must be an object");
-    return;
+    if (error != nullptr) {
+      *error = "globalProps must be an object";
+    }
+    return false;
   }
   if (tasm_ == nullptr) {
-    responder->SendError(CDPErrorCode::ServerError,
-                         "GlobalProps.replace is unavailable");
-    return;
+    if (error != nullptr) {
+      *error = "GlobalProps.replace is unavailable";
+    }
+    return false;
   }
-
   UpdateGlobalProps(tasm_, global_props);
-  responder->SendSuccess();
+  return true;
 }
 
 void InspectorTasmExecutor::GlobalPropsChanged() {
@@ -1987,12 +1971,12 @@ void InspectorTasmExecutor::GlobalPropsChanged() {
   auto devtool_mediator = devtool_mediator_wp_.lock();
   CHECK_NULL_AND_LOG_RETURN(devtool_mediator, "devtool_mediator is null");
 
-  Json::Value event(Json::ValueType::objectValue);
-  event["method"] = "GlobalProps.changed";
-  event["params"]["timestamp"] =
-      static_cast<Json::Value::UInt64>(last_global_props_timestamp_ms_);
-  event["params"]["changes"][0]["operation"] = "replace";
-  devtool_mediator->SendCDPEvent(event);
+  protocol::global_props::Changed event;
+  event.timestamp = static_cast<int64_t>(last_global_props_timestamp_ms_);
+  protocol::global_props::ChangedChangesItem change;
+  change.operation = "replace";
+  event.changes.push_back(std::move(change));
+  devtool_mediator->SendCDPEvent(protocol::global_props::Encode(event));
 }
 
 WhiteBoardInspectorDelegate*
