@@ -1,0 +1,40 @@
+summary: Reports stream handles for completed TestBench recording output.
+since: '4.1'
+parameters:
+  - name: stream
+    type: array|null
+    items: {type: string}
+    description: String-encoded FileStream handles, or null when no files were produced.
+  - name: filenames
+    type: array|null
+    items: {type: string}
+    description: Generated file paths, or null when no files were produced.
+  - name: sessionIDs
+    type: array|null
+    items: {type: integer}
+    description: Matching session ids, with -1 for an unmapped session; null when no sessions were returned.
+  - name: recordFormat
+    type: string
+    enum: [json, both, fixture]
+    description: Format determined from the successfully written file names.
+notes:
+  - Sent asynchronously after Recording.end is accepted and output files are written.
+  - Read streams with IO.read and release them with IO.close.
+  - Empty lists currently serialize as null in the native sender.
+examples:
+  - title: JSON recording completed
+    event:
+      method: Recording.recordingComplete
+      params:
+        stream: ['1']
+        filenames: [/tmp/1001.json]
+        sessionIDs: [1001]
+        recordFormat: json
+  - title: No output files
+    event:
+      method: Recording.recordingComplete
+      params:
+        stream: null
+        filenames: null
+        sessionIDs: null
+        recordFormat: json

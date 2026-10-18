@@ -1,4 +1,5 @@
 summary: Delivers the complete payload referenced by an observation log.
+since: '4.3'
 parameters:
   - name: payloadId
     type: string

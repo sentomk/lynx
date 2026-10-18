@@ -1,0 +1,23 @@
+summary: Reports a newly captured NativeModule record while live reporting is enabled.
+since: '4.3'
+parameters:
+  - name: record
+    type: object
+    description: Invocation, callback, or global event payload with its assigned sequence number.
+  - name: record.sequence
+    type: integer
+    description: Monotonically increasing arrival-order sequence number for this target.
+  - name: record.<key>
+    type: any
+    description: Record-kind-specific payload fields passed through by the record manager.
+notes:
+  - LynxNativeModule.enable starts live reporting; disable stops events without clearing history.
+  - LynxNativeModule.getRecords returns the retained history and latest sequence number.
+examples:
+  - title: Captured invocation
+    event:
+      method: LynxNativeModule.recordAdded
+      params:
+        record:
+          sequence: 1
+          method: LynxTestModule.echo

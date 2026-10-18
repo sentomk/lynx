@@ -1,0 +1,19 @@
+summary: Reports a changed global WhiteBoard shared-data entry.
+since: '4.1'
+parameters:
+  - name: key
+    type: string
+    description: Updated shared-data key.
+  - name: newValue
+    type: string
+    description: JSON text for the new value.
+notes:
+  - Sent by WhiteBoardInspectorDelegate::OnSharedDataUpdated while the delegate is enabled.
+  - WhiteBoard.setSharedData emits this event when the key already existed.
+examples:
+  - title: Shared-data updated notification
+    event:
+      method: WhiteBoard.onSharedDataUpdated
+      params:
+        key: count
+        newValue: '4'

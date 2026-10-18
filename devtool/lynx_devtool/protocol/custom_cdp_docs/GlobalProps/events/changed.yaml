@@ -1,0 +1,23 @@
+summary: Signals an authoritative update to the target's global properties.
+since: '4.3'
+parameters:
+  - name: timestamp
+    type: integer
+    description: Backend-generated monotonically increasing timestamp in milliseconds.
+  - name: changes
+    type: array
+    description: A single replacement marker; call GlobalProps.get for the current value.
+  - name: changes[].operation
+    type: string
+    enum: [replace]
+    description: Indicates replacement of the global properties.
+notes:
+  - Sent while GlobalProps is enabled. Updates before enable are not replayed.
+examples:
+  - title: Global properties replaced
+    event:
+      method: GlobalProps.changed
+      params:
+        timestamp: 5248546
+        changes:
+          - operation: replace

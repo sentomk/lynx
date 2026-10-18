@@ -2,6 +2,7 @@ summary: Returns platform-defined Lynx setting values.
 parameters: []
 returns:
   - name: result
+    root: true
     type: object
     description: Platform-defined values returned by the Lynx setting backend.
 events: []

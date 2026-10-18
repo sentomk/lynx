@@ -2,6 +2,7 @@ summary: Starts platform memory tracing for Lynx memory diagnostics.
 parameters: []
 returns:
   - name: result
+    root: true
     type: object
     description: Empty object on success.
 events: []

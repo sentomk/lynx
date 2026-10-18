@@ -1,0 +1,20 @@
+summary: Echoes the opaque payload supplied to Component.uselessUpdate.
+since: '4.1'
+parameters:
+  - name: params
+    root: true
+    type: object|null
+    description: Request params copied unchanged, or null when params was omitted.
+notes:
+  - This event is the legacy method's only success notification; it does not carry a request id.
+examples:
+  - title: Echo a component update
+    event:
+      method: Component.uselessUpdate
+      params:
+        componentId: comp-1
+        reason: debug
+  - title: Echo omitted params
+    event:
+      method: Component.uselessUpdate
+      params: null

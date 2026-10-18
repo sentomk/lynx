@@ -2,6 +2,7 @@ summary: Clears all platform Lynx setting mock values.
 parameters: []
 returns:
   - name: result
+    root: true
     type: object
     description: Platform-defined result object returned by the Lynx setting backend.
 events: []

@@ -1,21 +1,24 @@
-#!/usr/bin/env python3
 # Copyright 2026 The Lynx Authors. All rights reserved.
 # Licensed under the Apache License Version 2.0 that can be found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Update or check the vendored Chrome DevTools Protocol schema."""
+"""`cdpc upstream write|check`: the vendored Chrome DevTools Protocol schema.
+
+cdp_upstream/protocol.json concatenates upstream json/browser_protocol.json and
+json/js_protocol.json, normalized so `check` can compare it byte for byte.
+"""
 
 from __future__ import annotations
 
-import argparse
 import difflib
 import json
 import sys
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
+
+from cdpc.repo import CdpcError, Paths, relative_path
 
 
 GITHUB_RAW_ROOT = "https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol"
@@ -23,103 +26,49 @@ BROWSER_PROTOCOL_PATH = "json/browser_protocol.json"
 JS_PROTOCOL_PATH = "json/js_protocol.json"
 
 
-@dataclass(frozen=True)
-class Paths:
-    source_root: Path
-    protocol_dir: Path
-    upstream_schema: Path
-
-
-class UpstreamError(Exception):
+class UpstreamError(CdpcError):
     pass
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Update or check the vendored Chrome DevTools Protocol schema."
-    )
-    mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--write", action="store_true", help="rewrite protocol.json")
-    mode.add_argument("--check", action="store_true", help="check protocol.json")
-    parser.add_argument(
-        "--revision",
-        help=(
-            "devtools-protocol git revision to fetch from GitHub. "
-            "Do not use this in normal CI."
-        ),
-    )
-    parser.add_argument(
-        "--browser-protocol",
-        help="local path or URL for upstream json/browser_protocol.json",
-    )
-    parser.add_argument(
-        "--js-protocol",
-        help="local path or URL for upstream json/js_protocol.json",
-    )
-    parser.add_argument(
-        "--timeout",
-        type=float,
-        default=30.0,
-        help="URL fetch timeout in seconds. Defaults to 30.",
-    )
-    args = parser.parse_args()
+def run(
+    paths: Paths,
+    write: bool,
+    revision: Optional[str] = None,
+    browser_protocol: Optional[str] = None,
+    js_protocol: Optional[str] = None,
+    timeout: float = 30.0,
+) -> int:
+    """Rewrite protocol.json from upstream, or check it is normalized and current.
 
-    try:
-        validate_args(parser, args)
-        paths = get_paths()
-        sources = get_sources(args)
-        if sources is None:
-            expected_text = normalize_existing_protocol(paths.upstream_schema)
-        else:
-            browser_protocol = load_json_source(sources[0], args.timeout)
-            js_protocol = load_json_source(sources[1], args.timeout)
-            expected_text = build_protocol_json(browser_protocol, js_protocol)
+    Without a revision or local files, `check` only verifies that the
+    checked-in file is in canonical form.
+    """
 
-        if args.write:
-            paths.upstream_schema.write_text(expected_text, encoding="utf-8")
-            print(f"Updated {repo_relative_path(paths, paths.upstream_schema)}")
-            return 0
-
-        return check_protocol(paths, expected_text)
-    except UpstreamError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
+    sources = get_sources(revision, browser_protocol, js_protocol)
+    if sources is None:
+        expected_text = normalize_existing_protocol(paths.upstream_schema)
+    else:
+        browser = load_json_source(sources[0], timeout)
+        js = load_json_source(sources[1], timeout)
+        expected_text = build_protocol_json(browser, js)
+    if write:
+        paths.upstream_schema.write_text(expected_text, encoding="utf-8")
+        print(f"Updated {relative_path(paths, paths.upstream_schema)}")
+        return 0
+    return check_protocol(paths, expected_text)
 
 
-def validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
-    has_file_sources = bool(args.browser_protocol or args.js_protocol)
-    if args.revision and has_file_sources:
-        parser.error("--revision cannot be combined with --browser-protocol or --js-protocol")
-    if has_file_sources and not (args.browser_protocol and args.js_protocol):
-        parser.error("--browser-protocol and --js-protocol must be provided together")
-    if args.write and not args.revision and not has_file_sources:
-        parser.error("--write requires --revision or both local upstream protocol files")
-    if args.timeout <= 0:
-        parser.error("--timeout must be positive")
-
-
-def get_paths() -> Paths:
-    script_path = Path(__file__).resolve()
-    protocol_dir = script_path.parents[1]
-    lynx_devtool_dir = protocol_dir.parent
-    devtool_dir = lynx_devtool_dir.parent
-    source_root = devtool_dir.parent
-    return Paths(
-        source_root=source_root,
-        protocol_dir=protocol_dir,
-        upstream_schema=protocol_dir / "cdp_upstream" / "protocol.json",
-    )
-
-
-def get_sources(args: argparse.Namespace) -> tuple[str, str] | None:
-    if args.revision:
-        raw_root = f"{GITHUB_RAW_ROOT}/{args.revision}"
+def get_sources(
+    revision: Optional[str], browser_protocol: Optional[str], js_protocol: Optional[str]
+) -> Optional[tuple[str, str]]:
+    if revision:
+        raw_root = f"{GITHUB_RAW_ROOT}/{revision}"
         return (
             f"{raw_root}/{BROWSER_PROTOCOL_PATH}",
             f"{raw_root}/{JS_PROTOCOL_PATH}",
         )
-    if args.browser_protocol and args.js_protocol:
-        return (args.browser_protocol, args.js_protocol)
+    if browser_protocol and js_protocol:
+        return (browser_protocol, js_protocol)
     return None
 
 
@@ -242,8 +191,8 @@ def check_protocol(paths: Paths, expected: str) -> int:
     for line in difflib.unified_diff(
         actual.splitlines(),
         expected.splitlines(),
-        fromfile=repo_relative_path(paths, paths.upstream_schema),
-        tofile=f"{repo_relative_path(paths, paths.upstream_schema)} (expected)",
+        fromfile=relative_path(paths, paths.upstream_schema),
+        tofile=f"{relative_path(paths, paths.upstream_schema)} (expected)",
         lineterm="",
     ):
         print(line, file=sys.stderr)
@@ -253,16 +202,7 @@ def check_protocol(paths: Paths, expected: str) -> int:
 def print_update_command() -> None:
     print("Run:", file=sys.stderr)
     print(
-        "  tools/env.sh python3 "
-        "devtool/lynx_devtool/protocol/scripts/update_cdp_upstream.py "
-        "--write --revision <devtools-protocol-commit>",
+        "  tools/cdpc upstream write --revision <devtools-protocol-commit>",
         file=sys.stderr,
     )
 
-
-def repo_relative_path(paths: Paths, path: Path) -> str:
-    return path.resolve().relative_to(paths.source_root).as_posix()
-
-
-if __name__ == "__main__":
-    sys.exit(main())

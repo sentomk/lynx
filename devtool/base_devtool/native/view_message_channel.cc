@@ -6,6 +6,7 @@
 
 #include <iostream>
 
+#include "devtool/base_devtool/native/public/cdp_traffic_observer.h"
 #include "devtool/base_devtool/native/public/devtool_message_dispatcher.h"
 
 namespace lynx {
@@ -29,6 +30,7 @@ ViewMessageChannel::ViewMessageChannel(
 
 void ViewMessageChannel::OnMessageReceivedFromDebugRouter(
     const std::string& type, const std::string& msg) {
+  NotifyCDPIncomingMessage(this, type, msg);
   std::shared_ptr<DevToolMessageDispatcher> slot_agent = slot_agent_.lock();
   if (slot_agent) {
     slot_agent->DispatchMessage(shared_from_this(), type, msg);
@@ -37,11 +39,13 @@ void ViewMessageChannel::OnMessageReceivedFromDebugRouter(
 
 void ViewMessageChannel::SendMessage(const std::string& type,
                                      const Json::Value& msg) {
+  NotifyCDPOutgoingMessage(this, type, msg);
   slot_->SendMessage(type, msg.toStyledString());
 }
 
 void ViewMessageChannel::SendMessage(const std::string& type,
                                      const std::string& msg) {
+  NotifyCDPOutgoingMessage(this, type, msg);
   slot_->SendMessage(type, msg);
 }
 

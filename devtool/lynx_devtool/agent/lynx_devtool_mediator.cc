@@ -23,6 +23,7 @@
 #include "devtool/lynx_devtool/js_debug/js/inspector_java_script_debugger_impl.h"
 #include "devtool/lynx_devtool/js_debug/lepus/inspector_lepus_debugger_impl.h"
 #include "devtool/lynx_devtool/lynx_devtool_ng.h"
+#include "devtool/lynx_devtool/shared_data/white_board_inspector_tasm_delegate.h"
 #include "devtool/lynx_devtool/tracing/devtool_trace_event_def.h"
 
 namespace lynx {
@@ -1107,88 +1108,23 @@ void LynxDevToolMediator::GlobalPropsChanged() {
   }
 }
 
-void LynxDevToolMediator::WhiteBoardEnable(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
+bool LynxDevToolMediator::RunOnWhiteBoard(
+    std::function<void(WhiteBoardInspectorDelegate*)> task) {
   if (tasm_task_runner_) {
-    RunOnTaskRunner(tasm_task_runner_,
-                    [executor = element_executor_, responder, params] {
-                      executor->WhiteBoardEnable(responder, params);
-                    });
-  } else if (js_task_runner_) {
-    RunOnJSThread([js_debugger = js_debugger_, responder, params] {
-      js_debugger->WhiteBoardEnable(responder, params);
+    RunOnTaskRunner(tasm_task_runner_, [executor = element_executor_,
+                                        task = std::move(task)] {
+      task(executor ? executor->FindWhiteBoardInspectorDelegate() : nullptr);
     });
+    return true;
   }
-}
-
-void LynxDevToolMediator::WhiteBoardDisable(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (tasm_task_runner_) {
-    RunOnTaskRunner(tasm_task_runner_,
-                    [executor = element_executor_, responder, params] {
-                      executor->WhiteBoardDisable(responder, params);
-                    });
-  } else if (js_task_runner_) {
-    RunOnJSThread([js_debugger = js_debugger_, responder, params] {
-      js_debugger->WhiteBoardDisable(responder, params);
+  if (js_task_runner_) {
+    RunOnJSThread([js_debugger = js_debugger_, task = std::move(task)] {
+      task(js_debugger ? js_debugger->FindWhiteBoardInspectorDelegate()
+                       : nullptr);
     });
+    return true;
   }
-}
-
-void LynxDevToolMediator::WhiteBoardSetSharedData(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (tasm_task_runner_) {
-    RunOnTaskRunner(tasm_task_runner_,
-                    [executor = element_executor_, responder, params] {
-                      executor->WhiteBoardSetSharedData(responder, params);
-                    });
-  } else if (js_task_runner_) {
-    RunOnJSThread([js_debugger = js_debugger_, responder, params] {
-      js_debugger->WhiteBoardSetSharedData(responder, params);
-    });
-  }
-}
-
-void LynxDevToolMediator::WhiteBoardGetSharedData(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (tasm_task_runner_) {
-    RunOnTaskRunner(tasm_task_runner_,
-                    [executor = element_executor_, responder, params] {
-                      executor->WhiteBoardGetSharedData(responder, params);
-                    });
-  } else if (js_task_runner_) {
-    RunOnJSThread([js_debugger = js_debugger_, responder, params] {
-      js_debugger->WhiteBoardGetSharedData(responder, params);
-    });
-  }
-}
-
-void LynxDevToolMediator::WhiteBoardRemoveSharedData(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (tasm_task_runner_) {
-    RunOnTaskRunner(tasm_task_runner_,
-                    [executor = element_executor_, responder, params] {
-                      executor->WhiteBoardRemoveSharedData(responder, params);
-                    });
-  } else if (js_task_runner_) {
-    RunOnJSThread([js_debugger = js_debugger_, responder, params] {
-      js_debugger->WhiteBoardRemoveSharedData(responder, params);
-    });
-  }
-}
-
-void LynxDevToolMediator::WhiteBoardClear(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (tasm_task_runner_) {
-    RunOnTaskRunner(tasm_task_runner_,
-                    [executor = element_executor_, responder, params] {
-                      executor->WhiteBoardClear(responder, params);
-                    });
-  } else if (js_task_runner_) {
-    RunOnJSThread([js_debugger = js_debugger_, responder, params] {
-      js_debugger->WhiteBoardClear(responder, params);
-    });
-  }
+  return false;
 }
 
 void LynxDevToolMediator::SendCDPEvent(const Json::Value& msg) {

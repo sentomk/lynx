@@ -11,16 +11,17 @@ events:
   - WhiteBoard.onSharedDataAdded
   - WhiteBoard.onSharedDataUpdated
 notes:
-  - Requires WhiteBoard.enable first. If the delegate is disabled, the current handler returns without sending a CDP response.
+  - Requires WhiteBoard.enable first. Otherwise returns a CDP error with code -32000 and message WhiteBoard is not enabled.
   - Dispatches through LynxDevToolMediator to the TASM executor when available, otherwise to the JavaScript debugger.
-  - If neither backend task runner is available, the mediator does not dispatch the request and no explicit CDP response is sent.
+  - If neither backend task runner is available, returns a CDP error with code -32000 and message No WhiteBoard task runner is available.
+  - Missing or non-string key and value params return a CDP error with code -32602 and a message naming the field, such as params.value: expected string.
   - The value param must be a string containing valid JSON text. For a string value, include the JSON string quotes inside the value text.
   - Returns an empty result object on success.
   - Returns a CDP error with code -32602 and message The value must be a valid JSON string! when value cannot be parsed as JSON.
   - Returns a CDP error with code -32000 and message Failed to set shared data! when the WhiteBoard instance is unavailable.
   - The shared-data store emits WhiteBoard.onSharedDataAdded for a new key and WhiteBoard.onSharedDataUpdated for an existing key.
   - The add event params contain key and value. The update event params contain key and newValue.
-  - If no WhiteBoard inspector delegate is attached, the current handler does not send an explicit CDP response.
+  - If no WhiteBoard inspector delegate is attached, returns a CDP error with code -32000 and message WhiteBoard inspector delegate is not attached.
 examples:
   - title: Set a string value
     request:
@@ -50,3 +51,15 @@ examples:
       error:
         code: -32602
         message: The value must be a valid JSON string!
+  - title: Non-string value
+    request:
+      id: 5
+      method: WhiteBoard.setSharedData
+      params:
+        key: count
+        value: 3
+    response:
+      id: 5
+      error:
+        code: -32602
+        message: 'params.value: expected string'

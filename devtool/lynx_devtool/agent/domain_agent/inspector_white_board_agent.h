@@ -5,39 +5,45 @@
 #ifndef DEVTOOL_LYNX_DEVTOOL_AGENT_DOMAIN_AGENT_INSPECTOR_WHITE_BOARD_AGENT_H_
 #define DEVTOOL_LYNX_DEVTOOL_AGENT_DOMAIN_AGENT_INSPECTOR_WHITE_BOARD_AGENT_H_
 
-#include <map>
+#include <functional>
 #include <memory>
 
-#include "devtool/base_devtool/native/public/cdp_domain_agent_base.h"
-#include "devtool/lynx_devtool/agent/agent_defines.h"
+#include "devtool/lynx_devtool/protocol/cdp_protocol.generated.h"
 
 namespace lynx {
 namespace devtool {
 
 class LynxDevToolMediator;
+class WhiteBoardInspectorDelegate;
 
-class InspectorWhiteBoardAgent : public CDPDomainAgentBase {
+// WhiteBoard Backend: runs each command on the delegate's owning thread
+// through LynxDevToolMediator. Register it wrapped by
+// protocol::white_board::CreateAgent.
+class InspectorWhiteBoardAgent : public protocol::white_board::Backend {
  public:
   explicit InspectorWhiteBoardAgent(
       const std::shared_ptr<LynxDevToolMediator>& devtool_mediator);
   ~InspectorWhiteBoardAgent() override = default;
 
-  void CallMethod(const std::shared_ptr<CDPResponder>& responder,
-                  const Json::Value& message) override;
+  void Clear(protocol::white_board::ClearResponder responder) override;
+  void Disable(protocol::white_board::DisableResponder responder) override;
+  void Enable(protocol::white_board::EnableResponder responder) override;
+  void GetSharedData(
+      protocol::white_board::GetSharedDataResponder responder) override;
+  void RemoveSharedData(
+      protocol::white_board::RemoveSharedDataResponder responder,
+      protocol::white_board::RemoveSharedDataParams params) override;
+  void SetSharedData(
+      protocol::white_board::SetSharedDataResponder responder,
+      protocol::white_board::SetSharedDataParams params) override;
 
  private:
-  using WhiteBoardAgentMethod = void (InspectorWhiteBoardAgent::*)(
-      const std::shared_ptr<CDPResponder>& responder,
-      const Json::Value& params);
+  // Runs |call| with the delegate on its owning thread. Replies ServerError
+  // through |responder| when no thread or delegate is available.
+  template <typename Responder>
+  void Run(const Responder& responder,
+           std::function<void(WhiteBoardInspectorDelegate&)> call);
 
-  DECLARE_DEVTOOL_CDP_METHOD(Enable);
-  DECLARE_DEVTOOL_CDP_METHOD(Disable);
-  DECLARE_DEVTOOL_CDP_METHOD(SetSharedData);
-  DECLARE_DEVTOOL_CDP_METHOD(GetSharedData);
-  DECLARE_DEVTOOL_CDP_METHOD(RemoveSharedData);
-  DECLARE_DEVTOOL_CDP_METHOD(Clear);
-
-  std::map<std::string, WhiteBoardAgentMethod> functions_map_;
   const std::shared_ptr<LynxDevToolMediator> devtool_mediator_;
 };
 

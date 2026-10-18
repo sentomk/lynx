@@ -36,6 +36,7 @@
 #include "devtool/lynx_devtool/agent/lynx_devtool_mediator.h"
 #include "devtool/lynx_devtool/element/element_helper.h"
 #include "devtool/lynx_devtool/element/helper_util.h"
+#include "devtool/lynx_devtool/shared_data/white_board_inspector_tasm_delegate.h"
 #include "third_party/modp_b64/modp_b64.h"
 #include "third_party/zlib/zlib.h"
 
@@ -1994,48 +1995,10 @@ void InspectorTasmExecutor::GlobalPropsChanged() {
   devtool_mediator->SendCDPEvent(event);
 }
 
-#define HANDLE_WHITE_BOARD_METHOD(method, cur_func_name)                 \
-  do {                                                                   \
-    if (white_board_inspector_delegate_ == nullptr) {                    \
-      responder->SendError(CDPErrorCode::ServerError,                    \
-                           "InspectorTasmExecutor::" #cur_func_name      \
-                           ", white_board_inspector_delegate_ is null"); \
-      return;                                                            \
-    }                                                                    \
-    white_board_inspector_delegate_->method(responder, params);          \
-  } while (0)
-
-void InspectorTasmExecutor::WhiteBoardEnable(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  HANDLE_WHITE_BOARD_METHOD(Enable, WhiteBoardEnable);
+WhiteBoardInspectorDelegate*
+InspectorTasmExecutor::FindWhiteBoardInspectorDelegate() const {
+  return white_board_inspector_delegate_.get();
 }
-
-void InspectorTasmExecutor::WhiteBoardDisable(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  HANDLE_WHITE_BOARD_METHOD(Disable, WhiteBoardDisable);
-}
-
-void InspectorTasmExecutor::WhiteBoardSetSharedData(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  HANDLE_WHITE_BOARD_METHOD(SetSharedData, WhiteBoardSetSharedData);
-}
-
-void InspectorTasmExecutor::WhiteBoardGetSharedData(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  HANDLE_WHITE_BOARD_METHOD(GetSharedData, WhiteBoardGetSharedData);
-}
-
-void InspectorTasmExecutor::WhiteBoardRemoveSharedData(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  HANDLE_WHITE_BOARD_METHOD(RemoveSharedData, WhiteBoardRemoveSharedData);
-}
-
-void InspectorTasmExecutor::WhiteBoardClear(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  HANDLE_WHITE_BOARD_METHOD(Clear, WhiteBoardClear);
-}
-
-#undef HANDLE_WHITE_BOARD_METHOD
 
 void InspectorTasmExecutor::DOMEnableDomTree(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,

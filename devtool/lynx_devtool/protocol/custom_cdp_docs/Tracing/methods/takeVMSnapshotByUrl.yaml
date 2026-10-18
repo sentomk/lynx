@@ -20,7 +20,8 @@ examples:
       id: 1
       method: Tracing.takeVMSnapshotByUrl
       params:
-        config: '{"url":"https://xxx/template.js","type":"bts"}'
+        url: https://example.com/template.js
+        type: bts
     response:
       id: 1
       result: {}

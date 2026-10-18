@@ -1,101 +1,23 @@
-#!/usr/bin/env python3
 # Copyright 2026 The Lynx Authors. All rights reserved.
 # Licensed under the Apache License Version 2.0 that can be found in the
 # LICENSE file in the root directory of this source tree.
 
+"""Tests for manifest.py."""
+
 import tempfile
 import unittest
-from dataclasses import replace
 from pathlib import Path
 
-import update_cdp_metadata
+from cdpc import contract, manifest, scan
+from cdpc.repo import CdpcError
+from cdpc.tests.support import TempRepoTestCase
 
 
-class CdpMetadataScanTest(unittest.TestCase):
-    def setUp(self):
-        temp_dir = tempfile.TemporaryDirectory()
-        self.addCleanup(temp_dir.cleanup)
-        root = Path(temp_dir.name).resolve()
-        agents = root / "agents"
-        agents.mkdir()
-        primjs = root / "protocols.cc"
-        primjs.write_text(
-            'const debug_function_type& GetDebugFunctionMap() {\n'
-            '  return {{"Runtime.enable", Enable}};\n}\n',
-            encoding="utf-8",
-        )
-        self.paths = replace(
-            update_cdp_metadata.get_paths(),
-            source_root=root,
-            domain_agent_dir=agents,
-            primjs_protocols_source=primjs,
-        )
-
-    def test_scan_map_and_direct_dispatch_with_source_and_deduplication(self):
-        (self.paths.domain_agent_dir / "sample.cc").write_text(
-            'functions_map_["Sample.mapped"] = &SampleAgent::Mapped;\n'
-            'void SampleAgent::CallMethod(const Json::Value& message) {\n'
-            '  if (method == "Sample.direct") { Direct(); }\n'
-            '  else if (\n method == "Sample.mapped"\n) { Mapped(); }\n'
-            '  else if (method == "Runtime.forwarded") { Forward(); }\n'
-            '}\n'
-            'void SampleAgent::HandleNotification() {\n'
-            '  if (method == "Sample.notification") { Notify(); }\n'
-            '}\n',
-            encoding="utf-8",
-        )
-        (self.paths.domain_agent_dir / "sample_unittest.cc").write_text(
-            'void TestAgent::CallMethod() {\n'
-            '  if (method == "Sample.testOnly") { Test(); }\n'
-            '}\n',
-            encoding="utf-8",
-        )
-
-        self.assertEqual(
-            update_cdp_metadata.scan_local_methods(self.paths),
-            [
-                update_cdp_metadata.LocalMethod("Runtime", "enable", "protocols.cc"),
-                update_cdp_metadata.LocalMethod("Sample", "direct", "agents/sample.cc"),
-                update_cdp_metadata.LocalMethod("Sample", "mapped", "agents/sample.cc"),
-            ],
-        )
-
-    def test_reject_duplicate_map_and_direct_dispatch_in_different_files(self):
-        (self.paths.domain_agent_dir / "mapped.cc").write_text(
-            'functions_map_["Sample.method"] = &SampleAgent::Method;\n',
-            encoding="utf-8",
-        )
-        (self.paths.domain_agent_dir / "direct.cc").write_text(
-            'void SampleAgent::CallMethod() {\n'
-            '  if (method == "Sample.method") { Method(); }\n'
-            '}\n',
-            encoding="utf-8",
-        )
-
-        with self.assertRaisesRegex(
-            update_cdp_metadata.MetadataError,
-            r"duplicate method declaration for Sample\.method",
-        ):
-            update_cdp_metadata.scan_local_methods(self.paths)
-
-
-class CdpMetadataSinceTest(unittest.TestCase):
-    def test_scan_current_lynx_version(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            config = Path(temp_dir) / "config.h"
-            config.write_text(
-                "#define LYNX_VERSION tasm::V_4_2  // need updated when release lynx\n",
-                encoding="utf-8",
-            )
-
-            self.assertEqual(
-                update_cdp_metadata.scan_current_lynx_version(config), "4.2"
-            )
-
+class ManifestTest(TempRepoTestCase):
     def test_load_existing_manifest_since(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            manifest = Path(temp_dir) / "cdp_manifest.generated.yaml"
-            manifest.write_text(
+            manifest_file = Path(temp_dir) / "cdp_manifest.generated.yaml"
+            manifest_file.write_text(
                 "\n".join(
                     [
                         "domains:",
@@ -118,7 +40,7 @@ class CdpMetadataSinceTest(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            existing_manifest = update_cdp_metadata.load_existing_manifest(manifest)
+            existing_manifest = manifest.load_existing_manifest(manifest_file)
 
             self.assertIn("DOM", existing_manifest.domains)
             self.assertIn(("DOM", "getDocument"), existing_manifest.methods)
@@ -131,7 +53,7 @@ class CdpMetadataSinceTest(unittest.TestCase):
             )
 
     def test_build_manifest_assigns_since_for_method_entries(self):
-        existing_manifest = update_cdp_metadata.ExistingManifest(
+        existing_manifest = manifest.ExistingManifest(
             domains={"Component", "DOM"},
             methods={
                 ("Component", "uselessUpdate"),
@@ -146,22 +68,22 @@ class CdpMetadataSinceTest(unittest.TestCase):
             },
             event_since={},
         )
-        text = update_cdp_metadata.build_manifest(
+        text = manifest.build_manifest(
             paths=None,
             local_methods=[
-                update_cdp_metadata.LocalMethod(
+                scan.LocalMethod(
                     domain="Component", method="uselessUpdate", source="component.cc"
                 ),
-                update_cdp_metadata.LocalMethod(
+                scan.LocalMethod(
                     domain="DOM", method="getDocument", source="dom.cc"
                 ),
-                update_cdp_metadata.LocalMethod(
+                scan.LocalMethod(
                     domain="DOM", method="getDocumentWithBoxModel", source="dom.cc"
                 ),
-                update_cdp_metadata.LocalMethod(
+                scan.LocalMethod(
                     domain="DOM", method="newMethod", source="dom.cc"
                 ),
-                update_cdp_metadata.LocalMethod(
+                scan.LocalMethod(
                     domain="Lynx", method="getData", source="lynx.cc"
                 ),
             ],
@@ -213,7 +135,7 @@ class CdpMetadataSinceTest(unittest.TestCase):
         )
 
     def test_build_manifest_rejects_existing_entry_without_since(self):
-        existing_manifest = update_cdp_metadata.ExistingManifest(
+        existing_manifest = manifest.ExistingManifest(
             domains={"DOM"},
             methods={("DOM", "getDocument")},
             events=set(),
@@ -222,13 +144,13 @@ class CdpMetadataSinceTest(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(
-            update_cdp_metadata.MetadataError,
+            CdpcError,
             r"existing manifest entry DOM\.getDocument is missing mandatory `since`",
         ):
-            update_cdp_metadata.build_manifest(
+            manifest.build_manifest(
                 paths=None,
                 local_methods=[
-                    update_cdp_metadata.LocalMethod(
+                    scan.LocalMethod(
                         domain="DOM", method="getDocument", source="dom.cc"
                     )
                 ],
@@ -237,6 +159,104 @@ class CdpMetadataSinceTest(unittest.TestCase):
                 existing_manifest=existing_manifest,
                 current_lynx_version="4.2",
             )
+
+    def test_entry_since_prefers_declared_then_history_then_current(self):
+        key = ("Board", "changed")
+        self.assertEqual(
+            manifest.entry_since(key, {key}, {key: "4.4"}, "4.5", "4.1"),
+            "4.1",
+        )
+        self.assertEqual(
+            manifest.entry_since(key, {key}, {key: "4.4"}, "4.5"), "4.4"
+        )
+        self.assertEqual(manifest.entry_since(key, set(), {}, "4.5"), "4.5")
+
+    def test_build_manifest_v3_events_lifecycle_and_deviations(self):
+        def entry(kind, domain, name, **kwargs):
+            return contract.ContractEntry(
+                kind=kind,
+                domain=domain,
+                name=name,
+                source=self.paths.source_root / f"docs/{domain}/{name}.yaml",
+                origin=kwargs.pop("origin", "lynx-extension"),
+                parameters=contract.Schema(),
+                returns=None,
+                **kwargs,
+            )
+
+        contracts = contract.ContractSet(
+            methods={("Board", "set"): entry("method", "Board", "set", experimental=True)},
+            events={
+                ("Board", "changed"): entry("event", "Board", "changed", deprecated=True),
+                ("Board", "added"): entry("event", "Board", "added"),
+            },
+            deviations=[
+                contract.Deviation(
+                    domain="Tracing",
+                    target="tracingComplete.parameters.flag",
+                    kind="added",
+                    as_spec={"type": "boolean", "optional": True},
+                    reason="Lynx flag.",
+                )
+            ],
+            errors=[],
+            warnings=[],
+        )
+        existing_manifest = manifest.ExistingManifest(
+            domains={"Board"},
+            methods={("Board", "set")},
+            events={("Board", "added")},
+            method_since={("Board", "set"): "4.1"},
+            event_since={("Board", "added"): "4.2"},
+        )
+        text = manifest.build_manifest(
+            paths=self.paths,
+            local_methods=[
+                scan.LocalMethod("Board", "set", "board.cc"),
+                scan.LocalMethod("Tracing", "start", "tracing.cc"),
+            ],
+            scopes={"Board": "global", "Tracing": "global"},
+            upstream_methods={"Tracing": {"start"}},
+            existing_manifest=existing_manifest,
+            current_lynx_version="4.4",
+            contracts=contracts,
+        )
+
+        self.assertIn("\nversion: 3\n", text)
+        self.assertIn(
+            "      - name: set\n"
+            "        origin: lynx-extension\n"
+            "        experimental: true\n"
+            "        since: '4.1'\n"
+            "        source: board.cc\n"
+            "    events:\n"
+            "      - name: added\n"
+            "        origin: lynx-extension\n"
+            "        since: '4.2'\n"
+            "        source: docs/Board/added.yaml\n"
+            "      - name: changed\n"
+            "        origin: lynx-extension\n"
+            "        deprecated: true\n"
+            "        since: '4.4'\n"
+            "        source: docs/Board/changed.yaml\n",
+            text,
+        )
+        self.assertIn(
+            "    deviations:\n"
+            "      - target: tracingComplete.parameters.flag\n"
+            "        kind: added\n"
+            "        as:\n"
+            "          type: boolean\n"
+            "          optional: true\n"
+            '        reason: "Lynx flag."\n',
+            text,
+        )
+
+        reloaded = Path(self.paths.source_root) / "manifest.yaml"
+        reloaded.write_text(text, encoding="utf-8")
+        parsed = manifest.load_existing_manifest(reloaded)
+        self.assertEqual(parsed.event_since[("Board", "changed")], "4.4")
+        self.assertEqual(parsed.method_source[("Board", "set")], "board.cc")
 
 
 if __name__ == "__main__":

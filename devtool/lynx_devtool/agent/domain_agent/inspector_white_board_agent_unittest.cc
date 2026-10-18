@@ -24,6 +24,7 @@
 #include "devtool/lynx_devtool/js_debug/js/inspector_java_script_debugger_impl.h"
 #include "devtool/lynx_devtool/shared_data/white_board_inspector_impl.h"
 #include "devtool/lynx_devtool/shared_data/white_board_inspector_runtime_delegate.h"
+#include "devtool/lynx_devtool/shared_data/white_board_inspector_tasm_delegate.h"
 #include "third_party/googletest/googletest/include/gtest/gtest.h"
 
 namespace lynx {
@@ -75,7 +76,8 @@ class InspectorWhiteBoardAgentTest : public ::testing::Test {
     tasm_thread_ = std::make_unique<fml::Thread>("white_board_test_tasm");
     js_thread_ = std::make_unique<fml::Thread>("white_board_test_js");
     sender_ = std::make_shared<WhiteBoardTestMessageSender>();
-    agent_ = std::make_unique<InspectorWhiteBoardAgent>(mediator_);
+    agent_ = protocol::white_board::CreateAgent(
+        std::make_unique<InspectorWhiteBoardAgent>(mediator_));
   }
 
   void TearDown() override {
@@ -170,7 +172,7 @@ class InspectorWhiteBoardAgentTest : public ::testing::Test {
   std::shared_ptr<WhiteBoardInspectorImpl> inspector_;
   std::shared_ptr<tasm::WhiteBoard> white_board_;
   std::shared_ptr<WhiteBoardTestMessageSender> sender_;
-  std::unique_ptr<InspectorWhiteBoardAgent> agent_;
+  std::unique_ptr<CDPDomainAgentBase> agent_;
 };
 
 TEST_F(InspectorWhiteBoardAgentTest, TasmPathHandlesAllCommands) {
@@ -186,8 +188,7 @@ TEST_F(InspectorWhiteBoardAgentTest, TasmPathReportsMissingDelegate) {
   EXPECT_EQ(response["error"]["code"].asInt(),
             static_cast<int>(CDPErrorCode::ServerError));
   EXPECT_EQ(response["error"]["message"],
-            "InspectorTasmExecutor::WhiteBoardEnable, "
-            "white_board_inspector_delegate_ is null");
+            "WhiteBoard inspector delegate is not attached");
 }
 
 TEST_F(InspectorWhiteBoardAgentTest, JSPathHandlesAllCommands) {
@@ -203,8 +204,27 @@ TEST_F(InspectorWhiteBoardAgentTest, JSPathReportsMissingDelegate) {
   EXPECT_EQ(response["error"]["code"].asInt(),
             static_cast<int>(CDPErrorCode::ServerError));
   EXPECT_EQ(response["error"]["message"],
-            "InspectorJavaScriptDebuggerImpl::WhiteBoardEnable, "
-            "white_board_inspector_delegate_ is null");
+            "WhiteBoard inspector delegate is not attached");
+}
+
+TEST_F(InspectorWhiteBoardAgentTest, MissingTaskRunnersReturnServerError) {
+  const Json::Value response = Dispatch("WhiteBoard.enable");
+  EXPECT_EQ(response["error"]["code"].asInt(),
+            static_cast<int>(CDPErrorCode::ServerError));
+  EXPECT_EQ(response["error"]["message"],
+            "No WhiteBoard task runner is available");
+}
+
+TEST_F(InspectorWhiteBoardAgentTest, InvalidParamsAreRejectedBeforeDispatch) {
+  ConfigureTasmPath();
+  Json::Value params(Json::objectValue);
+  params["key"] = "key";
+  params["value"] = 3;
+
+  const Json::Value response = Dispatch("WhiteBoard.setSharedData", params);
+  EXPECT_EQ(response["error"]["code"].asInt(),
+            static_cast<int>(CDPErrorCode::InvalidParams));
+  EXPECT_EQ(response["error"]["message"], "params.value: expected string");
 }
 
 TEST_F(InspectorWhiteBoardAgentTest, UnknownMethodReturnsMethodNotFound) {

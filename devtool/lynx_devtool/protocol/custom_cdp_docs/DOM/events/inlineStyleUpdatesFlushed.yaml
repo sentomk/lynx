@@ -1,0 +1,43 @@
+summary: Reports coalesced inline style writes after a FiberFlushElementTree.
+since: '4.3'
+parameters:
+  - name: timestamp
+    type: number
+    description: Monotonically increasing time in seconds since an arbitrary point in the past.
+  - name: nodeUpdates
+    type: array
+    description: Updates grouped by backend node.
+  - name: nodeUpdates[].backendNodeId
+    type: integer
+    description: Backend node whose inline style changed.
+  - name: nodeUpdates[].properties
+    type: array
+    description: Final write for each property within this flush.
+  - name: nodeUpdates[].properties[].name
+    type: string
+    description: CSS property name.
+  - name: nodeUpdates[].properties[].value
+    type: string
+    optional: true
+    description: Serialized value of a property write, omitted for removals.
+  - name: nodeUpdates[].properties[].removed
+    type: boolean
+    optional: true
+    description: True for a removal, in place of value.
+notes:
+  - Requires DOM.enable. DOM.disable discards pending updates.
+  - Each property contains either value or removed set to true.
+  - Reports observed Core FiberAddInlineStyle writes; frame presentation is not guaranteed.
+examples:
+  - title: Property write and removal in one flush
+    event:
+      method: DOM.inlineStyleUpdatesFlushed
+      params:
+        timestamp: 5248.546
+        nodeUpdates:
+          - backendNodeId: 26
+            properties:
+              - name: width
+                value: '12.5'
+              - name: opacity
+                removed: true

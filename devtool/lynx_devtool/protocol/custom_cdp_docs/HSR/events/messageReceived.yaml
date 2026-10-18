@@ -1,4 +1,5 @@
 summary: Publishes an opaque string message from the host runtime on the global channel.
+since: '4.3'
 parameters:
   - name: message
     type: string

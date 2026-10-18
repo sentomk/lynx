@@ -1,0 +1,52 @@
+# Copyright 2026 The Lynx Authors. All rights reserved.
+# Licensed under the Apache License Version 2.0 that can be found in the
+# LICENSE file in the root directory of this source tree.
+import("../../../testing/test.gni")
+import("../devtool.gni")
+
+# Generated CDP types for domains marked `codegen: typed` in cdp_support.yaml.
+devtool_source_set("protocol") {
+  sources = [
+    "cdp_protocol.generated.cc",
+    "cdp_protocol.generated.h",
+  ]
+  public_deps = [ "../../base_devtool/native:base_devtool" ]
+}
+
+# Checks CDP traffic against the generated contract. It links about 130 KB of
+# contract data, so only test and debug targets should depend on it.
+devtool_source_set("cdp_contract_checker") {
+  sources = [
+    "cdp_contract_checker.cc",
+    "cdp_contract_checker.h",
+    "cdp_contract_schema.generated.cc",
+    "cdp_contract_schema.generated.h",
+  ]
+  public_deps = [ "../../base_devtool/native:base_devtool" ]
+}
+
+unittest_set("cdp_contract_checker_testset") {
+  public_configs = [
+    "../../../core:lynx_public_config",
+    "../:devtool_common_config",
+  ]
+  sources = [
+    "cdp_contract_checker_unittest.cc",
+    "cdp_protocol_fixture_unittest.cc",
+    "cdp_protocol_unittest.cc",
+
+    # Generated from testdata/fixture by `tools/cdpc write`; test only.
+    "testdata/fixture/fixture_protocol.generated.cc",
+    "testdata/fixture/fixture_protocol.generated.h",
+  ]
+  public_deps = [
+    ":cdp_contract_checker",
+    ":protocol",
+  ]
+  include_dirs = [ "//third_party/googletest/googletest/include" ]
+}
+
+unittest_exec("cdp_contract_checker_unittest_exec") {
+  sources = []
+  deps = [ ":cdp_contract_checker_testset" ]
+}

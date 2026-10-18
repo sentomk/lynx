@@ -1,0 +1,10 @@
+summary: Reports that all global WhiteBoard shared-data entries were cleared.
+since: '4.1'
+parameters: []
+notes:
+  - Sent by WhiteBoardInspectorDelegate::OnSharedDataCleared while the delegate is enabled.
+  - The message has no params field.
+examples:
+  - title: Shared-data cleared notification
+    event:
+      method: WhiteBoard.onSharedDataCleared

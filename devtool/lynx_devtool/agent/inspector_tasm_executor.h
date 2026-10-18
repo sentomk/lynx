@@ -21,7 +21,6 @@
 #include "devtool/lynx_devtool/agent/agent_defines.h"
 #include "devtool/lynx_devtool/agent/devtool_platform_facade.h"
 #include "devtool/lynx_devtool/agent/inspector_animation_controller.h"
-#include "devtool/lynx_devtool/shared_data/white_board_inspector_tasm_delegate.h"
 #include "third_party/jsoncpp/include/json/json.h"
 
 namespace lynx {
@@ -44,6 +43,8 @@ namespace lynx {
 namespace devtool {
 
 class CDPResponder;
+class WhiteBoardInspectorDelegate;
+class WhiteBoardInspectorTasmDelegate;
 class LynxDevToolMediator;
 
 class InspectorTasmExecutor
@@ -217,13 +218,9 @@ class InspectorTasmExecutor
   DECLARE_DEVTOOL_CDP_METHOD(GlobalPropsReplace);
   void GlobalPropsChanged();
 
-  // WhiteBoard domain
-  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardEnable);
-  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardDisable);
-  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardSetSharedData);
-  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardGetSharedData);
-  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardRemoveSharedData);
-  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardClear);
+  // WhiteBoard domain: the attached delegate, or nullptr. Unlike
+  // GetWhiteBoardInspectorDelegate() it never creates one.
+  WhiteBoardInspectorDelegate* FindWhiteBoardInspectorDelegate() const;
 
  public:
   // layout domain event

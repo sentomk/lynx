@@ -1,0 +1,14 @@
+summary: Reports a removed global WhiteBoard shared-data entry.
+since: '4.1'
+parameters:
+  - name: key
+    type: string
+    description: Removed shared-data key.
+notes:
+  - Sent by WhiteBoardInspectorDelegate::OnSharedDataRemoved while the delegate is enabled.
+examples:
+  - title: Shared-data removed notification
+    event:
+      method: WhiteBoard.onSharedDataRemoved
+      params:
+        key: userName

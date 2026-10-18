@@ -4,6 +4,7 @@
 
 #include "devtool/base_devtool/native/global_message_channel.h"
 
+#include "devtool/base_devtool/native/public/cdp_traffic_observer.h"
 #include "devtool/base_devtool/native/public/devtool_message_dispatcher.h"
 
 namespace lynx {
@@ -27,16 +28,19 @@ void GlobalMessageChannel::Initialize() {
 
 void GlobalMessageChannel::SendMessage(const std::string& type,
                                        const Json::Value& msg) {
+  NotifyCDPOutgoingMessage(this, type, msg);
   slot_->SendMessage(type, msg.toStyledString());
 }
 
 void GlobalMessageChannel::SendMessage(const std::string& type,
                                        const std::string& msg) {
+  NotifyCDPOutgoingMessage(this, type, msg);
   slot_->SendMessage(type, msg);
 }
 
 void GlobalMessageChannel::OnMessageReceivedFromDebugRouter(
     const std::string& type, const std::string& msg) {
+  NotifyCDPIncomingMessage(this, type, msg);
   std::shared_ptr<DevToolMessageDispatcher> agent = global_agent_.lock();
   if (agent) {
     agent->DispatchMessage(shared_from_this(), type, msg);

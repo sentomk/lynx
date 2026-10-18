@@ -5,7 +5,7 @@ returns:
     type: object
     description: Complete current GlobalProps value read from TemplateAssembler. An empty or not-yet-initialized value is returned as an empty object.
   - name: timestamp
-    type: number
+    type: integer
     description: Backend-generated timestamp of the most recent applied GlobalProps change, monotonically increasing within the target. The frontend uses it to order GlobalProps.changed events against this response, e.g. while refetching after a replace marker. Zero when no change has been observed.
 events: []
 notes:

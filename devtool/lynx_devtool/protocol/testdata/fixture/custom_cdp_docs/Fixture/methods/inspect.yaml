@@ -1,0 +1,39 @@
+summary: Exercises every shape the code generator supports.
+parameters:
+  - name: node
+    $ref: Tree.Node
+  - name: kinds
+    type: array
+    items: {$ref: Tree.Kind}
+  - name: modes
+    type: object
+  - name: 'modes.<key>'
+    type: string
+    enum: ['on', 'off']
+  - name: payload
+    type: object|string
+    optional: true
+returns:
+  - name: owner
+    $ref: Other.Owner
+  - name: quads
+    type: array
+    items: {$ref: Tree.Quad}
+  - name: ids
+    type: array
+    items: {$ref: Tree.NodeId}
+examples:
+  - title: Inspect a two-node tree
+    request:
+      id: 1
+      method: Fixture.inspect
+      params:
+        node: {nodeId: 1, kind: branch, children: [{nodeId: 2, kind: leaf}]}
+        kinds: [leaf, first-line]
+        modes: {fast: 'on'}
+    response:
+      id: 1
+      result:
+        owner: {name: root, root: {nodeId: 1, kind: branch}}
+        quads: [[0, 0, 1, 1]]
+        ids: [1, 2]

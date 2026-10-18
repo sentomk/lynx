@@ -14,6 +14,8 @@ When working in this repository, please consult the contents of the **[`agents/`
 
 For Harmony XElement work, also consult [`agents/harmony_xelement.md`](./agents/harmony_xelement.md), especially the native C++ registration direction for `markdown`.
 
+For DevTool CDP work (adding or changing CDP methods and events, `custom_cdp_docs`, or the CDP code generator), read [`agents/cdp_contract.md`](./agents/cdp_contract.md) first.
+
 For Explorer Node-API addon work, first read [`explorer/docs/lynx-node-api.md`](./explorer/docs/lynx-node-api.md) for the capability model, SDK prerequisites, sample loader behavior, and page-facing API. For platform packaging/build details, also read the relevant platform guide:
 
 - Android: [`explorer/android/lynx-napi-addon.md`](./explorer/android/lynx-napi-addon.md)

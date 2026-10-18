@@ -1,0 +1,7 @@
+summary: Lynx-extension method in a standard typed domain.
+parameters:
+  - name: nodeId
+    $ref: Tree.NodeId
+returns:
+  - name: box
+    $ref: Tree.Quad

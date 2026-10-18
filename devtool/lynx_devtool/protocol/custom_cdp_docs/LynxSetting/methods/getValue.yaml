@@ -5,13 +5,14 @@ parameters:
     description: Non-empty setting key to read.
 returns:
   - name: result
+    root: true
     type: object
     description: Platform-defined result object returned by the Lynx setting backend.
 events: []
 notes:
   - Dispatches on the DevTool task runner and forwards the request to GlobalDevToolPlatformFacade::HandleLynxSetting.
   - The forwarded request contains method LynxSetting.getValue, params.key, and an empty value field.
-  - 'The C++ handler rejects missing, non-string, or empty params.key with message Invalid params: expected string key.'
+  - The C++ handler rejects non-object params or a missing, non-string, or empty params.key with InvalidParams (-32602) and message Expected string key.
   - The C++ handler only requires the platform result JSON to parse as an object. It does not define additional result fields.
   - Platform errors are returned as CDP error responses with the platform-provided message.
 examples:
@@ -33,4 +34,5 @@ examples:
     response:
       id: 2
       error:
-        message: 'Invalid params: expected string key'
+        code: -32602
+        message: Expected string key

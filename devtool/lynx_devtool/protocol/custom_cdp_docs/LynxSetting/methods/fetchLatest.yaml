@@ -2,6 +2,7 @@ summary: Requests the platform Lynx setting backend to fetch the latest setting 
 parameters: []
 returns:
   - name: result
+    root: true
     type: object
     description: Platform-defined result object returned after the fetch request completes.
 events: []

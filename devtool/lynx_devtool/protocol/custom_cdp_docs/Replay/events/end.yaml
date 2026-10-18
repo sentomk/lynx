@@ -1,0 +1,15 @@
+summary: Exposes the completed replay dump as a readable stream.
+since: '4.1'
+parameters:
+  - name: stream
+    type: string
+    description: String-encoded FileStream handle for the replay dump file.
+notes:
+  - Also sent by the internal ReplayController::EndTest workflow after saving the dump.
+  - This legacy success notification has no request id. Read with IO.read and release with IO.close.
+examples:
+  - title: Replay dump available
+    event:
+      method: Replay.end
+      params:
+        stream: '1'

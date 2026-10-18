@@ -20,12 +20,16 @@
 #include "devtool/lynx_devtool/agent/inspector_ui_executor.h"
 #include "devtool/lynx_devtool/agent/lynx_devtool_mediator_base.h"
 #include "devtool/lynx_devtool/native_module/native_module_record_manager.h"
-#include "devtool/lynx_devtool/shared_data/white_board_inspector_delegate.h"
 
 namespace lynx {
+namespace tasm {
+class WhiteBoardDelegate;
+}  // namespace tasm
+
 namespace devtool {
 
 class LynxDevToolNG;
+class WhiteBoardInspectorDelegate;
 class InspectorJavaScriptDebuggerImpl;
 class InspectorLepusDebuggerImpl;
 
@@ -246,15 +250,11 @@ class LynxDevToolMediator
   DECLARE_DEVTOOL_METHOD(GetUIInfoForNode)
   DECLARE_DEVTOOL_METHOD(SetUIStyle)
 
-  // WhiteBoard domain:
-  // When tasm_executor_ is not nullptr, dispatch to tasm_executor_.
-  // Otherwise, dispatch to js_debugger_.
-  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardEnable);
-  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardDisable);
-  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardSetSharedData);
-  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardGetSharedData);
-  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardRemoveSharedData);
-  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardClear);
+  // WhiteBoard domain: runs |task| on the thread that owns the WhiteBoard
+  // inspector delegate, the TASM thread when available and otherwise the JS
+  // thread. |task| receives nullptr when that thread has no delegate. Returns
+  // false without running |task| when neither thread is available.
+  bool RunOnWhiteBoard(std::function<void(WhiteBoardInspectorDelegate*)> task);
 
  public:
   std::shared_ptr<InspectorUIExecutor> GetUIExecutor() { return ui_executor_; }

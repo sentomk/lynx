@@ -1,0 +1,31 @@
+# Copyright 2026 The Lynx Authors. All rights reserved.
+# Licensed under the Apache License Version 2.0 that can be found in the
+# LICENSE file in the root directory of this source tree.
+#
+# Lynx CDP support settings:
+# - `codegen: typed` generates C++ types for a Lynx-extension domain into
+#   cdp_protocol.generated.{h,cc}.
+# - `deviations` are shape differences from the vendored upstream schema. They
+#   are applied on top of cdp_upstream/protocol.json before docs examples are
+#   validated, and are exported to cdp_manifest.generated.yaml.
+# See cdp_metadata_workflow.md for the field rules.
+
+Debugger:
+  deviations:
+    - target: paused.parameters.reason
+      kind: retyped
+      as: {type: string}
+      reason: The PrimJS stop-at-entry path reports stopAtEntry, which is not an upstream pause reason.
+
+Tracing:
+  deviations:
+    - target: tracingComplete.parameters.isStartupTracing
+      kind: added
+      as: {type: boolean, optional: true}
+      reason: Marks the tracingComplete event sent for a startup tracing file.
+
+WhiteBoard:
+  codegen: typed
+
+# GlobalProps stays on the legacy functions_map_ / Json::Value dispatch.
+# Leave it untyped until the whole domain is migrated at once.

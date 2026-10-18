@@ -1,6 +1,7 @@
 summary: Echoes a Component.uselessUpdate message with the request params.
 parameters:
   - name: params
+    root: true
     type: object
     optional: true
     description: Opaque payload copied from the request params field into the outgoing Component.uselessUpdate message.

@@ -2,6 +2,7 @@ summary: Returns the Lynx engine version string reported by the platform.
 parameters: []
 returns:
   - name: result
+    root: true
     type: string
     description: Lynx version string returned directly as the CDP result value.
 events: []

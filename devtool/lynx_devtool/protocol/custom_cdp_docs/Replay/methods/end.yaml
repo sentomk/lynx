@@ -1,6 +1,7 @@
 summary: Ends TestBench replay by exposing a replay dump file as a stream.
 parameters:
   - name: params
+    root: true
     type: string
     description: File path for the replay dump file. The native handler reads the whole params value as this string.
 returns:
@@ -12,6 +13,7 @@ events:
 notes:
   - Replay support must be enabled in the current runtime. If ReplayController::Enable() is false, the agent returns method not implemented.
   - params is a raw string file path, not an object.
+  - The public DispatchCDPMessage entry rejects non-object params with InvalidRequest before this handler runs. The raw-string example describes the legacy internal handler shape, not a request accepted by that public entry.
   - On success, LynxGlobalDevToolMediator opens the file with FileStream::Open() and sends a Replay.end message whose params.stream is the stream handle.
   - Read the returned stream handle with IO.read and close it with IO.close.
   - If the file path cannot be opened, the method returns a CDP error with message file path doesn't exist.
