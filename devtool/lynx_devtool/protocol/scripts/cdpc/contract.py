@@ -65,6 +65,7 @@ METHOD_DOC_KEYS = frozenset(
         "experimental",
         "deprecated",
         "since",
+        "legacy",
     }
 )
 EVENT_DOC_KEYS = frozenset(
@@ -77,10 +78,33 @@ RESPONSE_KEYS = frozenset({"id", "result", "error", "sessionId"})
 EVENT_MESSAGE_KEYS = frozenset({"method", "params", "sessionId"})
 ERROR_KEYS = frozenset({"code", "message", "data"})
 ROOT_NAMES = {"parameters": "params", "returns": "result"}
-SUPPORT_DOMAIN_KEYS = frozenset({"deviations", "codegen", "methods", "events"})
+SUPPORT_DOMAIN_KEYS = frozenset(
+    {"deviations", "codegen", "methods", "events", "validation", "legacy", "golden"}
+)
 # Implemented inside the JS engines; Lynx only forwards their messages.
 ENGINE_DOMAINS = frozenset({"Debugger", "Runtime", "HeapProfiler", "Profiler"})
 CODEGEN_MODES = frozenset({"typed"})
+VALIDATION_MODES = frozenset({"legacy", "strict"})
+LEGACY_DOMAIN_KEYS = frozenset({"agent", "order", "unknownMethodMessage", "migrated"})
+LEGACY_METHOD_KEYS = frozenset({"validate", "thread", "errors", "defaults"})
+LEGACY_ERROR_KEYS = frozenset({"field", "reason", "code", "message"})
+LEGACY_VALIDATE = frozenset({"decode", "handler"})
+LEGACY_THREADS = frozenset({"none", "tasm", "ui", "devtool"})
+LEGACY_REASONS = frozenset({"missing", "type", "enum"})
+LEGACY_ERROR_CODES = frozenset(
+    {
+        "ParseError",
+        "InvalidRequest",
+        "MethodNotFound",
+        "InvalidParams",
+        "InternalError",
+        "ServerError",
+    }
+)
+GOLDEN_KEYS = frozenset({"file", "allowedDiffs", "volatile"})
+ALLOWED_DIFF_KEYS = frozenset({"case", "path", "from", "to", "reason", "expires"})
+VOLATILE_KINDS = frozenset({"monotonic"})
+TODO_TOKEN = "TODO(cdpc)"
 DEVIATION_KEYS = frozenset({"target", "kind", "as", "reason"})
 DEVIATION_KINDS = frozenset({"added", "omitted", "retyped"})
 AS_KEYS = FIELD_KEYS - {"name", "description", "default", "root"}
@@ -161,6 +185,62 @@ class ContractEntry:
     def key(self) -> str:
         return f"{self.domain}.{self.name}"
 
+    # Set only for methods. Ignored, with a warning, while the domain is strict.
+    legacy: Optional["MethodLegacy"] = None
+
+
+@dataclass
+class LegacyError:
+    """One old error text that overrides the codec message for a field."""
+
+    field: str
+    reason: str
+    code: str
+    message: str
+
+
+@dataclass
+class MethodLegacy:
+    """Where an old handler validated, and the texts it produced."""
+
+    validate: str = "decode"  # decode | handler
+    thread: str = "none"  # none | tasm | ui | devtool
+    errors: list[LegacyError] = field(default_factory=list)
+    defaults: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class DomainLegacy:
+    """Migration bookkeeping. Removed by `stubs --apply` once every method is typed."""
+
+    agent: Optional[str] = None
+    order: list[str] = field(default_factory=list)
+    unknown_method_message: Optional[str] = None
+    migrated: list[str] = field(default_factory=list)
+
+
+@dataclass
+class AllowedDiff:
+    case: str
+    path: str
+    from_text: str
+    to_text: str
+    reason: str
+    expires: Optional[str] = None
+
+
+@dataclass
+class VolatileField:
+    path: str
+    kind: str
+
+
+@dataclass
+class GoldenSpec:
+    file: Optional[str] = None
+    allowed_diffs: list[AllowedDiff] = field(default_factory=list)
+    volatile: list[VolatileField] = field(default_factory=list)
+
 
 @dataclass
 class Deviation:
@@ -185,6 +265,15 @@ class ContractSet:
     # Standard typed domains: the upstream (methods, events) Lynx implements.
     typed_upstream: dict[str, tuple[list[str], list[str]]] = field(default_factory=dict)
     support_file: Optional[Path] = None
+    # `validation` defaults to strict, so a typed domain that omits it (WhiteBoard)
+    # keeps the current decode-before-dispatch behavior.
+    validation: dict[str, str] = field(default_factory=dict)
+    domain_legacy: dict[str, DomainLegacy] = field(default_factory=dict)
+    domain_golden: dict[str, GoldenSpec] = field(default_factory=dict)
+
+
+def domain_validation(contracts: "ContractSet", domain: str) -> str:
+    return contracts.validation.get(domain, "strict")
 
 
 @dataclass
@@ -394,6 +483,8 @@ def load_contracts(
         reporter = _Reporter(display(entry.source), contracts.errors)
         _check_event_refs(entry, upstream, contracts, reporter)
         _check_examples(entry, validator, reporter, contracts.warnings)
+    _check_legacy_consistency(contracts, display)
+    _scan_todos(support_file, custom_docs_dir, contracts.errors, display)
     return contracts
 
 
@@ -459,6 +550,13 @@ def _load_support(support_file: Path, upstream: Upstream, contracts: ContractSet
                     f"{domain}: `{key}` selects upstream entries; Lynx-extension domains "
                     "declare entries through docs",
                 )
+        if domain in contracts.typed_domains:
+            _load_domain_migration(domain, config, contracts, reporter)
+        elif any(key in config for key in ("validation", "legacy", "golden")):
+            reporter.error(
+                line_of(config),
+                f"{domain}: validation, legacy and golden need `codegen: typed`",
+            )
         if "deviations" in config and domain not in upstream.domains:
             reporter.error(line_of(support), f"{domain}: deviations only apply to upstream domains")
             continue
@@ -466,6 +564,272 @@ def _load_support(support_file: Path, upstream: Upstream, contracts: ContractSet
             deviation = _apply_deviation(domain, item, upstream, reporter)
             if deviation is not None:
                 contracts.deviations.append(deviation)
+
+
+def _load_domain_migration(
+    domain: str, config: dict, contracts: ContractSet, reporter: _Reporter
+) -> None:
+    """`validation`, `legacy` and `golden` on a typed domain. Default validation is strict."""
+
+    mode = config.get("validation", "strict")
+    if mode not in VALIDATION_MODES:
+        reporter.error(
+            line_of(config),
+            f"{domain}: validation must be one of {sorted(VALIDATION_MODES)}",
+        )
+    else:
+        contracts.validation[domain] = mode
+    if "legacy" in config:
+        parsed = _parse_domain_legacy(domain, config["legacy"], reporter)
+        if parsed is not None:
+            contracts.domain_legacy[domain] = parsed
+    if "golden" in config:
+        parsed_golden = _parse_golden(domain, config["golden"], reporter)
+        if parsed_golden is not None:
+            contracts.domain_golden[domain] = parsed_golden
+
+
+def _parse_domain_legacy(domain: str, value: Any, reporter: _Reporter) -> Optional[DomainLegacy]:
+    if not isinstance(value, dict):
+        reporter.error(line_of(value) if isinstance(value, dict) else 0, f"{domain}: `legacy` must be a mapping")
+        return None
+    for key in sorted(set(value) - LEGACY_DOMAIN_KEYS):
+        reporter.error(line_of(value), f"{domain}: unknown legacy key `{key}`")
+    agent = value.get("agent")
+    if agent is not None and not isinstance(agent, str):
+        reporter.error(line_of(value), f"{domain}: legacy.agent must be a path")
+        agent = None
+    order = _name_list(value.get("order"), f"{domain}: legacy.order", reporter, value)
+    migrated = _name_list(value.get("migrated", []), f"{domain}: legacy.migrated", reporter, value)
+    message = value.get("unknownMethodMessage")
+    if message is not None and not isinstance(message, str):
+        reporter.error(line_of(value), f"{domain}: legacy.unknownMethodMessage must be a string")
+        message = None
+    if order is None or migrated is None:
+        return None
+    return DomainLegacy(
+        agent=agent,
+        order=order,
+        unknown_method_message=message,
+        migrated=migrated,
+    )
+
+
+def _name_list(value: Any, label: str, reporter: _Reporter, owner: Any) -> Optional[list[str]]:
+    if value is None:
+        return []
+    if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
+        reporter.error(line_of(owner), f"{label} must be a list of method names")
+        return None
+    return list(value)
+
+
+def _parse_golden(domain: str, value: Any, reporter: _Reporter) -> Optional[GoldenSpec]:
+    if not isinstance(value, dict):
+        reporter.error(0, f"{domain}: `golden` must be a mapping")
+        return None
+    for key in sorted(set(value) - GOLDEN_KEYS):
+        reporter.error(line_of(value), f"{domain}: unknown golden key `{key}`")
+    path = value.get("file")
+    if path is not None and not isinstance(path, str):
+        reporter.error(line_of(value), f"{domain}: golden.file must be a path")
+        path = None
+    diffs: list[AllowedDiff] = []
+    for item in value.get("allowedDiffs") or []:
+        parsed = _parse_allowed_diff(domain, item, reporter)
+        if parsed is not None:
+            diffs.append(parsed)
+    volatile: list[VolatileField] = []
+    for item in value.get("volatile") or []:
+        parsed_field = _parse_volatile(domain, item, reporter)
+        if parsed_field is not None:
+            volatile.append(parsed_field)
+    return GoldenSpec(file=path, allowed_diffs=diffs, volatile=volatile)
+
+
+def _parse_allowed_diff(domain: str, item: Any, reporter: _Reporter) -> Optional[AllowedDiff]:
+    if not isinstance(item, dict):
+        reporter.error(0, f"{domain}: golden.allowedDiffs entries must be mappings")
+        return None
+    for key in sorted(set(item) - ALLOWED_DIFF_KEYS):
+        reporter.error(line_of(item), f"{domain}: unknown allowedDiffs key `{key}`")
+    missing = [key for key in ("case", "path", "from", "to", "reason") if not isinstance(item.get(key), str) or not item.get(key)]
+    if "reason" not in item or not isinstance(item.get("reason"), str) or not str(item.get("reason")).strip():
+        reporter.error(line_of(item), f"{domain}: golden.allowedDiffs.reason is required")
+    if missing:
+        reporter.error(
+            line_of(item),
+            f"{domain}: golden.allowedDiffs entry needs case, path, from, to and reason",
+        )
+        return None
+    expires = item.get("expires")
+    if expires is not None and (not isinstance(expires, str) or not SINCE_RE.fullmatch(expires)):
+        reporter.error(line_of(item), f"{domain}: golden.allowedDiffs.expires must be a quoted major.minor")
+        expires = None
+    return AllowedDiff(
+        case=item["case"],
+        path=item["path"],
+        from_text=item["from"],
+        to_text=item["to"],
+        reason=item["reason"].strip(),
+        expires=expires,
+    )
+
+
+def _parse_volatile(domain: str, item: Any, reporter: _Reporter) -> Optional[VolatileField]:
+    if not isinstance(item, dict):
+        reporter.error(0, f"{domain}: golden.volatile entries must be mappings")
+        return None
+    path = item.get("path")
+    kind = item.get("kind")
+    if not isinstance(path, str) or not path:
+        reporter.error(line_of(item), f"{domain}: golden.volatile.path is required")
+        return None
+    if kind not in VOLATILE_KINDS:
+        reporter.error(
+            line_of(item),
+            f"{domain}: golden.volatile.kind must be one of {sorted(VOLATILE_KINDS)}",
+        )
+        return None
+    return VolatileField(path=path, kind=kind)
+
+
+def _parse_method_legacy(value: Any, reporter: _Reporter) -> Optional[MethodLegacy]:
+    if not isinstance(value, dict):
+        reporter.error(0, "`legacy` must be a mapping")
+        return None
+    for key in sorted(set(value) - LEGACY_METHOD_KEYS):
+        reporter.error(line_of(value), f"unknown legacy key `{key}`")
+    validate = value.get("validate", "decode")
+    thread = value.get("thread", "none")
+    if validate not in LEGACY_VALIDATE:
+        reporter.error(line_of(value), f"legacy.validate must be one of {sorted(LEGACY_VALIDATE)}")
+        validate = "decode"
+    if thread not in LEGACY_THREADS:
+        reporter.error(line_of(value), f"legacy.thread must be one of {sorted(LEGACY_THREADS)}")
+        thread = "none"
+    errors: list[LegacyError] = []
+    for item in value.get("errors") or []:
+        parsed = _parse_legacy_error(item, reporter)
+        if parsed is not None:
+            errors.append(parsed)
+    defaults = value.get("defaults", {})
+    if not isinstance(defaults, dict):
+        reporter.error(line_of(value), "legacy.defaults must be a mapping of field names to values")
+        defaults = {}
+    return MethodLegacy(validate=validate, thread=thread, errors=errors, defaults=dict(defaults))
+
+
+def _parse_legacy_error(item: Any, reporter: _Reporter) -> Optional[LegacyError]:
+    if not isinstance(item, dict):
+        reporter.error(0, "legacy.errors entries must be mappings")
+        return None
+    for key in sorted(set(item) - LEGACY_ERROR_KEYS):
+        reporter.error(line_of(item), f"unknown legacy.errors key `{key}`")
+    field_name = item.get("field")
+    reason = item.get("reason")
+    code = item.get("code")
+    message = item.get("message")
+    if not isinstance(field_name, str):
+        reporter.error(line_of(item), "legacy.errors.field must be a string (empty for the params value)")
+        return None
+    if reason not in LEGACY_REASONS:
+        reporter.error(line_of(item), f"legacy.errors.reason must be one of {sorted(LEGACY_REASONS)}")
+        return None
+    if code not in LEGACY_ERROR_CODES:
+        reporter.error(line_of(item), f"legacy.errors.code must be one of {sorted(LEGACY_ERROR_CODES)}")
+        return None
+    if not isinstance(message, str) or not message:
+        reporter.error(line_of(item), "legacy.errors.message must be a non-empty string")
+        return None
+    return LegacyError(field=field_name, reason=reason, code=code, message=message)
+
+
+def _check_legacy_consistency(contracts: ContractSet, display) -> None:
+    """order/migrated name the domain's methods; strict domains only warn about leftover legacy."""
+
+    for (domain, name), entry in sorted(contracts.methods.items()):
+        if entry.legacy is None:
+            continue
+        if domain_validation(contracts, domain) == "strict":
+            contracts.warnings.append(
+                f"{display(entry.source)}: legacy block is ignored while validation is strict; "
+                "`stubs --apply` removes it"
+            )
+            continue
+        for field_name in entry.legacy.defaults:
+            prop = (entry.parameters.properties or {}).get(field_name)
+            if prop is None or not prop.optional:
+                contracts.errors.append(
+                    f"{display(entry.source)}: legacy.defaults.{field_name} "
+                    "must be an optional parameter"
+                )
+    for domain, legacy in sorted(contracts.domain_legacy.items()):
+        names = [
+            entry.name
+            for entry in contract_methods(contracts, domain)
+        ]
+        known = set(names)
+        if domain_validation(contracts, domain) != "legacy":
+            contracts.warnings.append(
+                f"{display(contracts.support_file) if contracts.support_file else domain}: "
+                f"{domain}: legacy block is ignored while validation is strict"
+            )
+            continue
+        if not legacy.order:
+            contracts.errors.append(
+                f"{display(contracts.support_file) if contracts.support_file else domain}: "
+                f"{domain}: legacy.order must list every method in the old registration order"
+            )
+        elif sorted(legacy.order) != sorted(names) or len(legacy.order) != len(set(legacy.order)):
+            contracts.errors.append(
+                f"{display(contracts.support_file) if contracts.support_file else domain}: "
+                f"{domain}: legacy.order must list each method once, got {legacy.order} "
+                f"for {sorted(names)}"
+            )
+        unknown = [name for name in legacy.migrated if name not in known]
+        if unknown:
+            contracts.errors.append(
+                f"{display(contracts.support_file) if contracts.support_file else domain}: "
+                f"{domain}: legacy.migrated names unknown methods {unknown}"
+            )
+        if len(legacy.migrated) != len(set(legacy.migrated)):
+            contracts.errors.append(
+                f"{display(contracts.support_file) if contracts.support_file else domain}: "
+                f"{domain}: legacy.migrated lists a method more than once"
+            )
+    for domain, golden in sorted(contracts.domain_golden.items()):
+        if domain_validation(contracts, domain) == "legacy" and not golden.file:
+            contracts.warnings.append(
+                f"{display(contracts.support_file) if contracts.support_file else domain}: "
+                f"{domain}: validation is legacy but golden.file is not set"
+            )
+
+
+def contract_methods(contracts: ContractSet, domain: str) -> list[ContractEntry]:
+    return sorted(
+        (entry for entry in contracts.methods.values() if entry.domain == domain),
+        key=lambda entry: entry.name,
+    )
+
+
+def _scan_todos(support_file: Path, docs_dir: Path, errors: list[str], display) -> None:
+    """`TODO(cdpc)` is a placeholder inference could not fill. check rejects it."""
+
+    paths = []
+    if support_file.exists():
+        paths.append(support_file)
+    if docs_dir.exists():
+        paths.extend(sorted(docs_dir.glob("*/*/*.yaml")))
+    for path in paths:
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        shown = display(path)
+        for number, line in enumerate(lines, 1):
+            if TODO_TOKEN in line:
+                errors.append(f"{shown}:{number}: TODO(cdpc) must be resolved")
 
 
 def _upstream_selection(domain: str, config: dict, upstream: Upstream, reporter: _Reporter):
@@ -645,6 +1009,9 @@ def _load_entry(
         event_refs.append(ref_name)
 
     examples = [item for item in doc.get("examples") or [] if isinstance(item, dict)]
+    method_legacy = None
+    if kind == "method" and "legacy" in doc:
+        method_legacy = _parse_method_legacy(doc["legacy"], reporter)
     return ContractEntry(
         kind=kind,
         domain=domain,
@@ -662,6 +1029,7 @@ def _load_entry(
         summary=" ".join(summary.split()) if isinstance(summary, str) else "",
         declared_parameters=declared_parameters if upstream_entry is not None else None,
         declared_returns=declared_returns if upstream_entry is not None else None,
+        legacy=method_legacy,
     )
 
 

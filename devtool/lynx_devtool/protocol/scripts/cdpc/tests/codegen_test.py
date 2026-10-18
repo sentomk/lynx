@@ -403,6 +403,29 @@ class CodegenTest(contract_test.ContractTestBase):
         ):
             stubs.declarations(contracts, "DOM")
 
+    def test_legacy_dispatch_uses_registration_order_raw_and_deferred(self):
+        header, source = self.generate(
+            {
+                "Board/methods/reset.yaml": "summary: Reset.\n",
+                "Board/methods/set.yaml": (
+                    "summary: Set.\nparameters:\n  - name: value\n    type: object\n"
+                    "legacy:\n  validate: handler\n  thread: tasm\n  errors:\n"
+                    "    - field: value\n      reason: type\n      code: InvalidParams\n"
+                    "      message: value must be an object\n"
+                ),
+            },
+            "Board:\n  codegen: typed\n  validation: legacy\n"
+            "  legacy:\n    order: [set, reset]\n    migrated: [set]\n"
+            "    unknownMethodMessage: \"'{method}' wasn't found\"\n",
+        )
+        self.assertLess(source.index('"Board.set"'), source.index('"Board.reset"'))
+        self.assertIn("backend_->ResetRaw(cdp::RawCall{responder, message});", source)
+        self.assertIn("virtual void ResetRaw(const cdp::RawCall& call) = 0;", header)
+        self.assertIn("cdp::Deferred<SetParams>(message[\"params\"]", source)
+        self.assertIn("virtual void Set(SetResponder responder, cdp::Deferred<SetParams> params) = 0;", header)
+        self.assertIn("value must be an object", source)
+        self.assertIn("wasn't found", source)
+
     def test_snake_case(self):
         self.assertEqual(codegen.snake_case("WhiteBoard"), "white_board")
         self.assertEqual(codegen.snake_case("UITree"), "ui_tree")

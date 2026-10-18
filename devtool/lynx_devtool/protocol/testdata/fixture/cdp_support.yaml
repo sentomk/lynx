@@ -2,6 +2,14 @@
 Fixture:
   codegen: typed
 
+# Legacy validation: registration order, a raw unmigrated method, and Deferred.
+Migrate:
+  codegen: typed
+  validation: legacy
+  legacy:
+    order: [set, reset]
+    migrated: [set]
+
 # A standard domain: only the listed upstream entries are generated.
 Tree:
   codegen: typed

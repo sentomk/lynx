@@ -40,6 +40,12 @@ static Json::Value EncodeValue(const InspectResult& value);
 static Json::Value EncodeValue(const Changed& value);
 }  // namespace fixture
 
+namespace migrate {
+
+static bool DecodeValue(const Json::Value& in, const std::string& path,
+                        SetParams* out, std::string* error);
+}  // namespace migrate
+
 namespace tree {
 
 static bool DecodeValue(const Json::Value& in, const std::string& path,
@@ -192,6 +198,24 @@ static Json::Value EncodeValue(const Changed& value) {
 
 }  // namespace fixture
 
+namespace migrate {
+
+static bool DecodeValue(const Json::Value& in, const std::string& path,
+                        SetParams* out, std::string* error) {
+  if (!in.isObject()) {
+    return cdp::Fail(path, "expected object", error);
+  }
+  if (!cdp::DecodeField(in, "value", path, &out->value, error)) {
+    return false;
+  }
+  if (!(cdp::CheckKinds(out->value, path + ".value", cdp::kObject, error))) {
+    return false;
+  }
+  return true;
+}
+
+}  // namespace migrate
+
 namespace tree {
 
 static bool DecodeValue(const Json::Value& in, const std::string& path,
@@ -294,6 +318,59 @@ std::unique_ptr<CDPDomainAgentBase> CreateAgent(
 }
 
 }  // namespace fixture
+
+namespace migrate {
+
+bool Decode(const Json::Value& params, SetParams* out, std::string* error) {
+  return DecodeValue(params.isNull() ? cdp::EmptyObject() : params, "params",
+                     out, error);
+}
+
+Agent::Agent(std::unique_ptr<Backend> backend) : backend_(std::move(backend)) {}
+
+Agent::~Agent() = default;
+
+bool Agent::PreDispatch(const std::string& method, const Json::Value& message,
+                        const std::shared_ptr<CDPResponder>& responder) {
+  return true;
+}
+
+constexpr cdp::LegacyError kSetLegacyErrors[] = {
+    {"value", "type", CDPErrorCode::InvalidParams, "value must be an object"},
+    {"value", "missing", CDPErrorCode::InvalidParams,
+     "value must be an object"},
+};
+
+void Agent::CallMethod(const std::shared_ptr<CDPResponder>& responder,
+                       const Json::Value& message) {
+  const std::string method = message["method"].asString();
+  if (!PreDispatch(method, message, responder)) {
+    return;
+  }
+  if (method == "Migrate.set") {
+    backend_->Set(SetResponder(responder),
+                  cdp::Deferred<SetParams>(
+                      message["params"], kSetLegacyErrors,
+                      sizeof(kSetLegacyErrors) / sizeof(kSetLegacyErrors[0])));
+    return;
+  }
+  if (method == "Migrate.reset") {
+    backend_->ResetRaw(cdp::RawCall{responder, message});
+    return;
+  }
+  responder->SendError(CDPErrorCode::MethodNotFound,
+                       "'" + method + "' wasn't found");
+}
+
+std::unique_ptr<CDPDomainAgentBase> CreateAgent(
+    std::unique_ptr<Backend> backend) {
+  if (!backend) {
+    return nullptr;
+  }
+  return std::make_unique<Agent>(std::move(backend));
+}
+
+}  // namespace migrate
 
 namespace tree {
 

@@ -8,6 +8,7 @@
 // cdp::Box, and enum checks inside arrays and maps.
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -242,6 +243,62 @@ TEST(CDPCodegenFixtureTest, StandardDomainGeneratesTheSelectedSubset) {
   event.node.kind = tree::KindEnum::kBranch;
   EXPECT_EQ(tree::Encode(event), Parse(R"({"method": "Tree.nodeChanged",
                       "params": {"node": {"nodeId": 3, "kind": "branch"}}})"));
+}
+
+TEST(CDPCodegenFixtureTest, LegacyDispatchDefersDecodeAndForwardsRawCalls) {
+  namespace migrate = protocol_fixture::migrate;
+
+  class Backend : public migrate::Backend {
+   public:
+    void ResetRaw(const cdp::RawCall& call) override {
+      raw_method_ = call.message["method"].asString();
+      migrate::ResetResponder(call.responder).SendSuccess();
+    }
+    void Set(migrate::SetResponder responder,
+             cdp::Deferred<migrate::SetParams> params) override {
+      std::optional<migrate::SetParams> decoded = params.Get(responder);
+      if (!decoded) {
+        return;
+      }
+      saw_object_ = decoded->value.isObject();
+      responder.SendSuccess();
+    }
+    std::string raw_method_;
+    bool saw_object_ = false;
+  };
+  class Sender : public MessageSender {
+   public:
+    void SendMessage(const std::string&, const Json::Value& msg) override {
+      messages.push_back(msg);
+    }
+    void SendMessage(const std::string&, const std::string& msg) override {
+      messages.push_back(Parse(msg));
+    }
+    std::vector<Json::Value> messages;
+  };
+
+  auto backend = std::make_unique<Backend>();
+  Backend* raw = backend.get();
+  auto agent = migrate::CreateAgent(std::move(backend));
+  auto sender = std::make_shared<Sender>();
+
+  Json::Value wrong = Parse(
+      R"({"id": 1, "method": "Migrate.set", "params": {"value": []}})");
+  agent->CallMethod(std::make_shared<CDPResponder>(sender, 1), wrong);
+  ASSERT_EQ(sender->messages.size(), 1u);
+  EXPECT_EQ(sender->messages[0]["error"]["message"].asString(),
+            "value must be an object");
+  EXPECT_FALSE(raw->saw_object_);
+
+  Json::Value ok = Parse(
+      R"({"id": 2, "method": "Migrate.set", "params": {"value": {"a": 1}}})");
+  agent->CallMethod(std::make_shared<CDPResponder>(sender, 2), ok);
+  EXPECT_TRUE(raw->saw_object_);
+
+  Json::Value forwarded =
+      Parse(R"({"id": 3, "method": "Migrate.reset", "params": {"kept": true}})");
+  agent->CallMethod(std::make_shared<CDPResponder>(sender, 3), forwarded);
+  EXPECT_EQ(raw->raw_method_, "Migrate.reset");
 }
 
 }  // namespace testing

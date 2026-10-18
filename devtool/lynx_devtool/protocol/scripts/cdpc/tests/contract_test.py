@@ -266,6 +266,50 @@ class FieldShapeTest(ContractTestBase):
         )
 
 
+class LegacySchemaTest(ContractTestBase):
+    def test_validation_defaults_to_strict_and_rejects_unknown_modes(self):
+        self.support.write_text("Board:\n  codegen: typed\n", encoding="utf-8")
+        self.write_doc("Board/methods/get.yaml", "summary: Get.\n")
+        contracts = self.load()
+        self.assertEqual(contracts.errors, [])
+        self.assertEqual(contract.domain_validation(contracts, "Board"), "strict")
+
+        self.support.write_text(
+            "Board:\n  codegen: typed\n  validation: loose\n", encoding="utf-8"
+        )
+        self.assertErrors(self.load(), "validation must be one of ['legacy', 'strict']")
+
+    def test_todo_marker_fails_the_contract(self):
+        self.support.write_text(
+            "Board:\n  codegen: typed\n  validation: legacy\n"
+            "  # TODO(cdpc): confirm registration order\n"
+            "  legacy:\n    order: [get]\n",
+            encoding="utf-8",
+        )
+        self.write_doc("Board/methods/get.yaml", "summary: Get.\n")
+        self.assertErrors(self.load(), "TODO(cdpc) must be resolved")
+
+    def test_legacy_order_must_name_each_method_once(self):
+        self.support.write_text(
+            "Board:\n  codegen: typed\n  validation: legacy\n"
+            "  legacy:\n    order: [get]\n",
+            encoding="utf-8",
+        )
+        self.write_doc("Board/methods/get.yaml", "summary: Get.\n")
+        self.write_doc("Board/methods/set.yaml", "summary: Set.\n")
+        self.assertErrors(self.load(), "legacy.order must list each method once")
+
+    def test_strict_domain_warns_about_a_leftover_legacy_block(self):
+        self.support.write_text("Board:\n  codegen: typed\n", encoding="utf-8")
+        self.write_doc(
+            "Board/methods/get.yaml",
+            "summary: Get.\nlegacy:\n  validate: handler\n  thread: none\n",
+        )
+        contracts = self.load()
+        self.assertEqual(contracts.errors, [])
+        self.assertTrue(any("ignored while validation is strict" in item for item in contracts.warnings))
+
+
 class ExampleValidationTest(ContractTestBase):
     def write_set_shared_data(self, examples: str) -> None:
         self.write_doc(

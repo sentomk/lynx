@@ -4,8 +4,10 @@
 
 """Tests for outputs.py and schema_cpp.py."""
 
+import tempfile
 import unittest
 from dataclasses import replace
+from pathlib import Path
 
 from cdpc import contract, outputs, repo, schema_cpp
 from cdpc.tests.support import TempRepoTestCase
@@ -100,8 +102,8 @@ class ConclusionTest(unittest.TestCase):
 
 class RelativePathTest(TempRepoTestCase):
     def test_symlink_outside_the_repo_is_an_env_error(self):
-        outside = self.paths.source_root.parent / "outside-target"
-        outside.mkdir()
+        outside = Path(tempfile.mkdtemp(prefix="cdpc-outside-"))
+        self.addCleanup(lambda: outside.rmdir() if outside.exists() else None)
         link = self.paths.source_root / "linked-src"
         link.symlink_to(outside, target_is_directory=True)
         with self.assertRaises(repo.EnvError) as caught:

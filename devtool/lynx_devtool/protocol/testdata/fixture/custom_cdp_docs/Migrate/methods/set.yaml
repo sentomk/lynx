@@ -1,0 +1,17 @@
+summary: Migrated method whose params are decoded after the caller asks.
+parameters:
+  - name: value
+    type: object
+returns: []
+legacy:
+  validate: handler
+  thread: tasm
+  errors:
+    - field: value
+      reason: type
+      code: InvalidParams
+      message: value must be an object
+    - field: value
+      reason: missing
+      code: InvalidParams
+      message: value must be an object

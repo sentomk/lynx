@@ -30,6 +30,11 @@ struct InspectParams;
 struct InspectResult;
 }  // namespace fixture
 
+namespace migrate {
+
+struct SetParams;
+}  // namespace migrate
+
 namespace other {
 
 struct Owner;
@@ -116,6 +121,15 @@ struct Changed {
 
 }  // namespace fixture
 
+namespace migrate {
+
+// Migrate.set params.
+struct SetParams {
+  Json::Value value{};
+};
+
+}  // namespace migrate
+
 namespace tree {
 
 // Tree.getNode params.
@@ -195,6 +209,53 @@ std::unique_ptr<CDPDomainAgentBase> CreateAgent(
     std::unique_ptr<Backend> backend);
 
 }  // namespace fixture
+
+namespace migrate {
+
+// Decodes Migrate.set params. Unknown fields are ignored. On failure
+// returns false and sets |error| to an InvalidParams message.
+bool Decode(const Json::Value& params, SetParams* out, std::string* error);
+
+using SetResponder = cdp::Responder<cdp::Empty>;
+using ResetResponder = cdp::Responder<cdp::Empty>;
+
+// Implemented by the Migrate domain. validation is legacy:
+// unmigrated methods take cdp::RawCall, and handler-validated
+// methods take cdp::Deferred so Decode runs after the thread hop.
+// Each method must reply through its responder.
+class Backend {
+ public:
+  virtual ~Backend() = default;
+  virtual void Set(SetResponder responder, cdp::Deferred<SetParams> params) = 0;
+  virtual void ResetRaw(const cdp::RawCall& call) = 0;
+};
+
+// Dispatches Migrate methods to a Backend. Subclass it to filter
+// requests in PreDispatch.
+class Agent : public CDPDomainAgentBase {
+ public:
+  explicit Agent(std::unique_ptr<Backend> backend);
+  ~Agent() override;
+
+  void CallMethod(const std::shared_ptr<CDPResponder>& responder,
+                  const Json::Value& message) override;
+
+ protected:
+  // Runs before params are decoded. Return false after replying through
+  // |responder| to reject the request. Allows every request by default.
+  virtual bool PreDispatch(const std::string& method,
+                           const Json::Value& message,
+                           const std::shared_ptr<CDPResponder>& responder);
+
+ private:
+  std::unique_ptr<Backend> backend_;
+};
+
+// Wraps |backend| in an Agent. Returns nullptr when |backend| is null.
+std::unique_ptr<CDPDomainAgentBase> CreateAgent(
+    std::unique_ptr<Backend> backend);
+
+}  // namespace migrate
 
 namespace tree {
 

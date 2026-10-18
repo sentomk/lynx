@@ -447,11 +447,26 @@ def _mark(builder: _TypeBuilder, expr: _Expr, decode: bool, encode: bool) -> Non
 
 
 @dataclass
+class _LegacyError:
+    field: str
+    reason: str
+    code: str
+    message: str
+
+
+@dataclass
 class _Command:
     key: str
     method: str  # UpperCamel C++ method name
+    wire: str  # protocol method name, such as "enable"
     params: Optional[str]  # params struct, or None without param fields
     result: Optional[str]  # result struct, or None without result fields
+    # Legacy migration. Strict domains leave every flag false, so the emitted
+    # dispatch stays byte-identical to the pre-migration generator.
+    raw: bool = False
+    deferred: bool = False
+    legacy_errors: list[_LegacyError] = field(default_factory=list)
+    defaults: dict[str, object] = field(default_factory=dict)
 
     @property
     def responder(self) -> str:
@@ -466,6 +481,8 @@ class _Domain:
     decoders: list[tuple[str, str]] = field(default_factory=list)  # (struct, entry key)
     result_encoders: list[tuple[str, str]] = field(default_factory=list)
     event_encoders: list[tuple[str, str, bool]] = field(default_factory=list)  # (struct, key, has fields)
+    validation: str = "strict"
+    unknown_method_message: Optional[str] = None
 
 
 @dataclass
@@ -476,19 +493,55 @@ class _Model:
     builder: _TypeBuilder
 
 
+def _apply_legacy_command(
+    contracts: contract.ContractSet,
+    command: _Command,
+    validation: str,
+    legacy: Optional[contract.DomainLegacy],
+) -> None:
+    """Mark unmigrated methods as raw and handler-validated methods as deferred.
+
+    A missing `legacy` block means the domain is not mid-migration: every method
+    is typed. `validation: strict` never takes this path's flags.
+    """
+
+    if validation != "legacy":
+        return
+    doc = contracts.methods.get((command.key.split(".", 1)[0], command.wire))
+    method_legacy = doc.legacy if doc is not None else None
+    if method_legacy is not None:
+        command.legacy_errors = [
+            _LegacyError(item.field, item.reason, item.code, item.message)
+            for item in method_legacy.errors
+        ]
+        command.defaults = dict(method_legacy.defaults)
+        command.deferred = method_legacy.validate == "handler"
+    if legacy is not None and command.wire not in legacy.migrated:
+        command.raw = True
+        command.deferred = False
+
+
 def build_model(contracts: contract.ContractSet) -> _Model:
     builder = _TypeBuilder(contracts.upstream)
     domains = []
     for domain_name in sorted(contracts.typed_domains):
         namespace = snake_case(domain_name)
-        domain = _Domain(name=domain_name, namespace=namespace)
+        legacy = contracts.domain_legacy.get(domain_name)
+        validation = contract.domain_validation(contracts, domain_name)
+        domain = _Domain(
+            name=domain_name,
+            namespace=namespace,
+            validation=validation,
+            unknown_method_message=legacy.unknown_method_message if legacy else None,
+        )
         entries = contract.typed_entries(contracts, domain_name)
         for entry in (item for item in entries if item.kind == "method"):
             for section, schema in (("params", entry.parameters), ("result", entry.returns)):
                 if schema is None or schema.kinds != {"object"} or schema.properties is None:
                     raise CodegenError(f"{entry.key}: root {section} is not supported by typed codegen")
             base = upper_camel(entry.name)
-            command = _Command(key=entry.key, method=base, params=None, result=None)
+            command = _Command(key=entry.key, method=base, wire=entry.name, params=None, result=None)
+            _apply_legacy_command(contracts, command, validation, legacy)
             if entry.parameters.properties:
                 key = (namespace, f"{base}Params")
                 builder.struct(key, f"{entry.key} params.", entry.parameters, f"{entry.key}.params")
@@ -502,6 +555,9 @@ def build_model(contracts: contract.ContractSet) -> _Model:
                 domain.result_encoders.append((key[1], entry.key))
                 command.result = key[1]
             domain.commands.append(command)
+        if legacy and legacy.order:
+            position = {name: index for index, name in enumerate(legacy.order)}
+            domain.commands.sort(key=lambda item: position.get(item.wire, len(position)))
         for entry in (item for item in entries if item.kind == "event"):
             key = (namespace, upper_camel(entry.name))
             struct = builder.struct(key, f"{entry.key} event.", entry.parameters, f"{entry.key}.params")
@@ -733,10 +789,86 @@ def _render_codecs(model: _Model, struct: _Struct) -> list[str]:
 
 
 def _backend_signature(command: _Command, prefix: str = "") -> str:
+    if command.raw:
+        return f"void {command.method}Raw(const cdp::RawCall& call)"
     args = f"{prefix}{command.responder} responder"
-    if command.params:
+    if command.deferred and command.params:
+        args += f", cdp::Deferred<{prefix}{command.params}> params"
+    elif command.params:
         args += f", {prefix}{command.params} params"
     return f"void {command.method}({args})"
+
+
+def _cpp_string(text: str) -> str:
+    escaped = (
+        text.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+    )
+    return f'"{escaped}"'
+
+
+def _legacy_error_symbol(command: _Command) -> str:
+    return f"k{command.method}LegacyErrors"
+
+
+def _defaults_function(command: _Command) -> str:
+    return f"Apply{command.method}Defaults"
+
+
+def _cpp_literal(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return _cpp_string(value)
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+    if isinstance(value, float):
+        return repr(value)
+    raise CodegenError(f"legacy.defaults value {value!r} is not a scalar C++ literal")
+
+
+def _legacy_helpers(domain: _Domain) -> list[str]:
+    """Error tables and default fillers. Empty for strict domains."""
+
+    lines: list[str] = []
+    for command in domain.commands:
+        if command.legacy_errors:
+            lines += [
+                f"constexpr cdp::LegacyError {_legacy_error_symbol(command)}[] = {{",
+            ]
+            for item in command.legacy_errors:
+                lines.append(
+                    "    {"
+                    + ", ".join(
+                        [
+                            _cpp_string(item.field),
+                            _cpp_string(item.reason),
+                            f"CDPErrorCode::{item.code}",
+                            _cpp_string(item.message),
+                        ]
+                    )
+                    + "},"
+                )
+            lines += ["};", ""]
+        if command.defaults and command.params and not command.raw:
+            lines += [
+                f"inline void {_defaults_function(command)}({command.params}* params) {{",
+            ]
+            for name, value in command.defaults.items():
+                member = member_name(name)
+                lines += [
+                    f"  if (!params->{member}) {{",
+                    f"    params->{member} = {_cpp_literal(value)};",
+                    "  }",
+                ]
+            lines += ["}", ""]
+    return lines
+
+
+def _error_table_args(command: _Command) -> str:
+    if not command.legacy_errors:
+        return "nullptr, 0"
+    symbol = _legacy_error_symbol(command)
+    return f"{symbol}, sizeof({symbol}) / sizeof({symbol}[0])"
 
 
 def _dispatch_header(domain: _Domain) -> list[str]:
@@ -744,10 +876,21 @@ def _dispatch_header(domain: _Domain) -> list[str]:
     for command in domain.commands:
         result = command.result or "cdp::Empty"
         lines.append(f"using {command.responder} = cdp::Responder<{result}>;")
+    if domain.validation == "legacy":
+        intro = [
+            f"// Implemented by the {domain.name} domain. validation is legacy:",
+            "// unmigrated methods take cdp::RawCall, and handler-validated",
+            "// methods take cdp::Deferred so Decode runs after the thread hop.",
+            "// Each method must reply through its responder.",
+        ]
+    else:
+        intro = [
+            f"// Implemented by the {domain.name} domain. Params arrive decoded; each",
+            "// method must reply through its responder.",
+        ]
     lines += [
         "",
-        f"// Implemented by the {domain.name} domain. Params arrive decoded; each",
-        "// method must reply through its responder.",
+        *intro,
         "class Backend {",
         " public:",
         "  virtual ~Backend() = default;",
@@ -796,6 +939,9 @@ def _dispatch_source(domain: _Domain) -> list[str]:
         "  return true;",
         "}",
         "",
+    ]
+    lines += _legacy_helpers(domain)
+    lines += [
         "void Agent::CallMethod(const std::shared_ptr<CDPResponder>& responder,",
         "                       const Json::Value& message) {",
         '  const std::string method = message["method"].asString();',
@@ -805,22 +951,10 @@ def _dispatch_source(domain: _Domain) -> list[str]:
     ]
     for command in domain.commands:
         lines.append(f'  if (method == "{command.key}") {{')
-        if command.params:
-            lines += [
-                f"    {command.params} params;",
-                "    std::string error;",
-                '    if (!Decode(message["params"], &params, &error)) {',
-                "      responder->SendError(CDPErrorCode::InvalidParams, error);",
-                "      return;",
-                "    }",
-                f"    backend_->{command.method}({command.responder}(responder), std::move(params));",
-            ]
-        else:
-            lines.append(f"    backend_->{command.method}({command.responder}(responder));")
+        lines += _dispatch_command(command)
         lines += ["    return;", "  }"]
+    lines += _method_not_found(domain)
     lines += [
-        "  responder->SendError(CDPErrorCode::MethodNotFound,",
-        """                       "'" + method + "' wasn't found");""",
         "}",
         "",
         "std::unique_ptr<CDPDomainAgentBase> CreateAgent(std::unique_ptr<Backend> backend) {",
@@ -831,6 +965,65 @@ def _dispatch_source(domain: _Domain) -> list[str]:
         "}",
     ]
     return lines
+
+
+def _dispatch_command(command: _Command) -> list[str]:
+    """Body of one method branch. The strict shape matches the historical generator."""
+
+    if command.raw:
+        return [f"    backend_->{command.method}Raw(cdp::RawCall{{responder, message}});"]
+    if command.deferred and command.params:
+        defaults = f", &{_defaults_function(command)}" if command.defaults else ""
+        return [
+            f"    backend_->{command.method}({command.responder}(responder),",
+            f"                        cdp::Deferred<{command.params}>(message[\"params\"], {_error_table_args(command)}{defaults}));",
+        ]
+    if not command.params:
+        return [f"    backend_->{command.method}({command.responder}(responder));"]
+    lines = [
+        f"    {command.params} params;",
+        "    std::string error;",
+        '    if (!Decode(message["params"], &params, &error)) {',
+    ]
+    if command.legacy_errors:
+        lines += [
+            "      CDPErrorCode code = CDPErrorCode::InvalidParams;",
+            "      std::string message_text = error;",
+            f"      cdp::ApplyLegacyError(error, {_error_table_args(command)}, &code, &message_text);",
+            "      responder->SendError(code, message_text);",
+        ]
+    else:
+        lines.append("      responder->SendError(CDPErrorCode::InvalidParams, error);")
+    lines += [
+        "      return;",
+        "    }",
+    ]
+    if command.defaults:
+        lines.append(f"    {_defaults_function(command)}(&params);")
+    lines.append(
+        f"    backend_->{command.method}({command.responder}(responder), std::move(params));"
+    )
+    return lines
+
+
+def _method_not_found(domain: _Domain) -> list[str]:
+    template = domain.unknown_method_message
+    if template is None or template == "'{method}' wasn't found":
+        return [
+            "  responder->SendError(CDPErrorCode::MethodNotFound,",
+            """                       "'" + method + "' wasn't found");""",
+        ]
+    parts = template.split("{method}")
+    pieces = []
+    for index, part in enumerate(parts):
+        if part:
+            pieces.append(_cpp_string(part))
+        if index != len(parts) - 1:
+            pieces.append("method")
+    expression = " + ".join(pieces) if pieces else '""'
+    return [
+        "  responder->SendError(CDPErrorCode::MethodNotFound, " + expression + ");",
+    ]
 
 
 @dataclass
@@ -854,8 +1047,8 @@ def backend_methods(
     prefix = f"protocol::{domain.namespace}::"
     methods = []
     for command in domain.commands:
-        args = f"{prefix}{command.responder} responder"
-        if command.params:
-            args += f", {prefix}{command.params} params"
-        methods.append(BackendMethod(command.key, command.method, args))
+        cpp_name = f"{command.method}Raw" if command.raw else command.method
+        signature = _backend_signature(command, prefix)
+        args = signature[len(f"void {cpp_name}(") : -1]
+        methods.append(BackendMethod(command.key, cpp_name, args))
     return domain.namespace, methods
