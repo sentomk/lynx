@@ -11,6 +11,10 @@ closing namespaces of the `.cc` next to the header. Each new definition
 replies MethodNotFound, so the build passes and an unfilled method fails
 loudly instead of falling back to an empty success. Existing code is never
 changed; overrides of methods the Backend no longer has are only reported.
+
+When no class implements the Backend yet, --apply first scaffolds
+`agent/domain_agent/inspector_<domain>_agent.{h,cc}`, starting with the Lynx
+license header, and then adds the overrides to it.
 """
 
 from __future__ import annotations
@@ -23,7 +27,7 @@ from typing import Optional
 
 from cdpc import codegen, contract, scan, style
 from cdpc.codegen import BackendMethod
-from cdpc.repo import CdpcError, Paths, relative_path
+from cdpc.repo import CdpcError, Paths, license_header, relative_path
 
 
 class StubError(CdpcError):
@@ -43,11 +47,100 @@ def apply_to_domain(paths: Paths, contracts: contract.ContractSet, domain: str) 
     """Add the missing overrides of `domain`'s Backend; returns the report."""
 
     namespace, methods = codegen.backend_methods(contracts, domain)
-    header, class_name = scan.find_backend_class(
-        [paths.source_root / "devtool"], f"protocol::{namespace}"
-    )
+    qualified = f"protocol::{namespace}"
+    found = scan.find_backend_classes([paths.source_root / "devtool"], [qualified])[qualified]
+    created: list[Path] = []
+    if not found:
+        header, class_name = scaffold(paths, domain, namespace)
+        created = [header, header.with_suffix(".cc")]
+    else:
+        header, class_name = scan.find_backend_class(
+            [paths.source_root / "devtool"], qualified
+        )
     result = apply(header, class_name, methods, paths.clang_format)
-    return format_result(result, lambda path: relative_path(paths, path))
+    display = lambda path: relative_path(paths, path)
+    report = "".join(
+        style.item("+", f"created {display(path)}", "green") + "\n" for path in created
+    )
+    if created:
+        report += style.wrap(
+            f"Register it with RegisterAgent(\"{domain}\", {qualified}::CreateAgent("
+            f"std::make_unique<{class_name}>(devtool_mediator_))) and add both files "
+            "to agent/BUILD.gn.",
+        ) + "\n"
+    return report + format_result(result, display)
+
+
+def scaffold(paths: Paths, domain: str, namespace: str) -> tuple[Path, str]:
+    """Create an empty Backend implementation of `domain`; returns header and class."""
+
+    class_name = f"Inspector{domain}Agent"
+    header = paths.domain_agent_dir / f"inspector_{namespace}_agent.h"
+    source = header.with_suffix(".cc")
+    for path in (header, source):
+        if path.exists():
+            raise StubError(
+                f"{relative_path(paths, path)} exists but does not implement "
+                f"protocol::{namespace}::Backend; derive its class from it first"
+            )
+    header_include = header.relative_to(paths.source_root).as_posix()
+    header.write_text(header_text(header_include, class_name, namespace), encoding="utf-8")
+    source.write_text(source_text(header_include, class_name), encoding="utf-8")
+    return header, class_name
+
+
+def header_text(include: str, class_name: str, namespace: str) -> str:
+    guard = "".join(c if c.isalnum() else "_" for c in include).upper() + "_"
+    lines = [
+        *license_header("//"),
+        "",
+        f"#ifndef {guard}",
+        f"#define {guard}",
+        "",
+        "#include <memory>",
+        "",
+        '#include "devtool/lynx_devtool/protocol/cdp_protocol.generated.h"',
+        "",
+        "namespace lynx {",
+        "namespace devtool {",
+        "",
+        "class LynxDevToolMediator;",
+        "",
+        f"class {class_name} : public protocol::{namespace}::Backend {{",
+        " public:",
+        f"  explicit {class_name}(",
+        "      const std::shared_ptr<LynxDevToolMediator>& devtool_mediator);",
+        f"  ~{class_name}() override = default;",
+        "",
+        " private:",
+        "  const std::shared_ptr<LynxDevToolMediator> devtool_mediator_;",
+        "};",
+        "",
+        "}  // namespace devtool",
+        "}  // namespace lynx",
+        "",
+        f"#endif  // {guard}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def source_text(include: str, class_name: str) -> str:
+    lines = [
+        *license_header("//"),
+        "",
+        f'#include "{include}"',
+        "",
+        "namespace lynx {",
+        "namespace devtool {",
+        "",
+        f"{class_name}::{class_name}(",
+        "    const std::shared_ptr<LynxDevToolMediator>& devtool_mediator)",
+        "    : devtool_mediator_(devtool_mediator) {}",
+        "",
+        "}  // namespace devtool",
+        "}  // namespace lynx",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 @dataclass

@@ -141,6 +141,20 @@ fi
 
 exit_code=0
 echo Using habitat "$HABITAT_VERSION"
-$HAB_EXECUTABLE_FILE "$@" || exit_code=$?
+# habitat reports "failed=N" and still exits 0. The upstream fix (scheme 1) is
+# for lynx-family/habitat to return non-zero; this wrapper is scheme 2 so
+# `tools/hab sync` fails before a later GN build notices missing generated
+# files. The tasks that fail here (tools/error_code/gen_error_code.py and
+# others) need PyYAML, which is pinned in tools/vpython_tools/requirements.txt
+# but is not installed into the habitat task environment.
+hab_output=$("$HAB_EXECUTABLE_FILE" "$@" 2>&1) || exit_code=$?
+printf '%s\n' "$hab_output"
+if [ "${is_sync_command:-}" = true ]; then
+  if printf '%s\n' "$hab_output" | grep -Eq 'failed=[1-9]'; then
+    if [ "$exit_code" -eq 0 ]; then
+      exit_code=1
+    fi
+  fi
+fi
 
 exit $exit_code

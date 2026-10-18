@@ -19,7 +19,7 @@ from typing import Iterable, Optional
 
 from cdpc import contract, style
 from cdpc.codegen import BackendMethod
-from cdpc.repo import CdpcError, Paths, relative_path
+from cdpc.repo import CdpcError, EnvError, Paths, relative_path
 
 
 METHOD_NAME_PATTERN = r"[A-Za-z][A-Za-z0-9]*\.[A-Za-z][A-Za-z0-9_]*"
@@ -150,7 +150,9 @@ def scan_primjs_methods(
 ) -> None:
     source_file = paths.primjs_protocols_source
     if not source_file.exists():
-        raise CdpcError(f"missing PrimJS CDP method map: {source_file}")
+        raise EnvError(
+            f"missing PrimJS CDP method map: {source_file}; run `tools/hab sync .`"
+        )
 
     text = source_file.read_text(encoding="utf-8")
     match = PRIMJS_FUNCTION_RE.search(text)

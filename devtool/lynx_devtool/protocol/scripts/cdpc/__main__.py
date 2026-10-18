@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from cdpc import diff, inventory, outputs, query, stubs, style, upstream
-from cdpc.repo import CdpcError, Paths, get_paths
+from cdpc.repo import CdpcError, EnvError, Paths, get_paths
 
 
 USAGE = """\
@@ -29,6 +29,7 @@ manifest, the runtime contract checker and generated C++.
 commands:
   write [--require-primjs]          regenerate the manifest and generated C++
   check [--require-primjs]          fail if docs are invalid or outputs are stale
+                                    write and check end with one conclusion line
   list [Domain|Domain.glob ...] [--methods|--events] [--standard|--lynx]
        [--no-docs]                  list implemented methods and sent events
   show <Domain.name>                print one entry's effective contract
@@ -41,7 +42,13 @@ commands:
   test                              run the script unit tests
 
 Run `tools/hab sync .` first for PrimJS sources and clang-format.
+`tools/cdpc` is a bash wrapper around this module; it needs `tools/env.sh`
+and is not a Python script (`python3 tools/cdpc` will not run).
 CI runs `tools/cdpc check --require-primjs`.
+
+exit status: 0 ok (warnings allowed), 1 contract or generated-file error,
+2 usage error, 3 missing environment (clang-format, PrimJS, or a path
+that resolves outside the checkout).
 
 Output marks lines with symbols, so it reads the same without color:
   + added   - missing or omitted   ~ retyped   ! ignored   ? no docs   == section
@@ -83,7 +90,7 @@ def _inventory(require_primjs: bool) -> inventory.Inventory:
 def cmd_write(argv: list[str]) -> int:
     options = _parser("write", "Regenerate the manifest and generated C++.", True).parse_args(argv)
     paths = get_paths()
-    return outputs.write(paths, _contracts(paths, warn=True), options.require_primjs)
+    return outputs.write(paths, inventory.load_contracts(paths), options.require_primjs)
 
 
 def cmd_check(argv: list[str]) -> int:
@@ -91,7 +98,7 @@ def cmd_check(argv: list[str]) -> int:
         argv
     )
     paths = get_paths()
-    return outputs.check(paths, _contracts(paths, warn=True), options.require_primjs)
+    return outputs.check(paths, inventory.load_contracts(paths), options.require_primjs)
 
 
 def cmd_list(argv: list[str]) -> int:
@@ -252,9 +259,21 @@ def main(argv: Optional[list[str]] = None) -> int:
         return command(argv[1:])
     except _Exit as exc:
         return exc.status
+    except EnvError as exc:
+        _report_failure(argv, exc, 3, "env")
+        return 3
     except CdpcError as exc:
-        print(style.error(str(exc)), file=sys.stderr)
+        _report_failure(argv, exc, 1, "error")
         return 1
+
+
+def _report_failure(argv: list[str], exc: Exception, status: int, kind: str) -> None:
+    """Print the failure, and a conclusion line for write/check."""
+
+    print(style.error(str(exc)), file=sys.stderr)
+    command = argv[0] if argv else ""
+    if command in ("write", "check"):
+        print(style.paint(f"✗ {command}: 1 error ({kind})", "bold", "red"), file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -10,8 +10,31 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+# The license header every Lynx source file starts with. The year is fixed so
+# regenerated outputs stay byte-identical for `tools/cdpc check`.
+LICENSE_LINES = (
+    "Copyright 2026 The Lynx Authors. All rights reserved.",
+    "Licensed under the Apache License Version 2.0 that can be found in the",
+    "LICENSE file in the root directory of this source tree.",
+)
+
+
+def license_header(comment: str = "//") -> list[str]:
+    """LICENSE_LINES behind `comment`, e.g. "//" for C++ or "#" for YAML."""
+
+    return [f"{comment} {line}" for line in LICENSE_LINES]
+
+
 class CdpcError(Exception):
     """A repository state cdpc cannot work with; reported without a traceback."""
+
+
+class EnvError(CdpcError):
+    """Missing toolchain, or a path this checkout cannot express. Exit status 3.
+
+    Separated from other CdpcErrors so CI can tell a missing environment from
+    a contract or generated-file failure.
+    """
 
 
 @dataclass(frozen=True)
@@ -67,4 +90,18 @@ def get_paths() -> Paths:
 
 
 def relative_path(paths: Paths, path: Path) -> str:
-    return path.resolve().relative_to(paths.source_root).as_posix()
+    """Path relative to the source root, or EnvError when it cannot be expressed.
+
+    `Path.resolve` follows symlinks. A symlink that leaves the checkout (common
+    in git worktrees, for example `third_party/quickjs/src`) used to raise a
+    bare ValueError from `relative_to`.
+    """
+
+    try:
+        return path.resolve().relative_to(paths.source_root.resolve()).as_posix()
+    except ValueError as exc:
+        raise EnvError(
+            f"cannot express {path} relative to the source root; it resolves "
+            "outside the repository, often through a symlink. "
+            f"({exc})"
+        ) from exc

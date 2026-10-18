@@ -7,7 +7,7 @@ import textwrap
 import unittest
 from pathlib import Path
 
-from cdpc import scan, stubs
+from cdpc import repo, scan, stubs
 from cdpc.codegen import BackendMethod
 from cdpc.repo import CdpcError
 
@@ -158,3 +158,61 @@ class StubsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ScaffoldTest(unittest.TestCase):
+    """`stubs --apply` scaffolds a Backend implementation with the license header."""
+
+    def setUp(self):
+        temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        root = Path(temp_dir.name)
+        self.agent_dir = root / "devtool" / "lynx_devtool" / "agent" / "domain_agent"
+        self.agent_dir.mkdir(parents=True)
+
+        class FakePaths:
+            source_root = root
+            domain_agent_dir = self.agent_dir
+
+        self.paths = FakePaths()
+
+    def test_scaffold_starts_with_license_header_and_takes_stubs(self):
+        header, class_name = stubs.scaffold(self.paths, "Sample", "sample")
+        source = header.with_suffix(".cc")
+        expected = "\n".join(repo.license_header("//")) + "\n\n"
+        self.assertEqual(class_name, "InspectorSampleAgent")
+        self.assertTrue(header.read_text(encoding="utf-8").startswith(expected))
+        self.assertTrue(source.read_text(encoding="utf-8").startswith(expected))
+        self.assertIn(
+            "#ifndef DEVTOOL_LYNX_DEVTOOL_AGENT_DOMAIN_AGENT_INSPECTOR_SAMPLE_AGENT_H_",
+            header.read_text(encoding="utf-8"),
+        )
+        self.assertEqual(
+            scan.find_backend_classes([self.paths.source_root], ["protocol::sample"]),
+            {"protocol::sample": [(header, class_name)]},
+        )
+
+        result = stubs.apply(header, class_name, METHODS)
+        self.assertEqual(result.added, ["Sample.enable", "Sample.getValue"])
+        self.assertIn("override;", header.read_text(encoding="utf-8"))
+        self.assertIn("is not implemented", source.read_text(encoding="utf-8"))
+
+    def test_scaffold_refuses_to_overwrite(self):
+        (self.agent_dir / "inspector_sample_agent.h").write_text("// mine\n", encoding="utf-8")
+        with self.assertRaises(CdpcError):
+            stubs.scaffold(self.paths, "Sample", "sample")
+        self.assertEqual(
+            (self.agent_dir / "inspector_sample_agent.h").read_text(encoding="utf-8"),
+            "// mine\n",
+        )
+
+
+class LicenseHeaderTest(unittest.TestCase):
+    def test_generated_outputs_share_the_license_header(self):
+        from cdpc import outputs
+
+        self.assertEqual(outputs.GENERATED_CPP_NOTICE[:3], repo.license_header("//"))
+        self.assertEqual(
+            repo.license_header("#")[0],
+            "# Copyright 2026 The Lynx Authors. All rights reserved.",
+        )
