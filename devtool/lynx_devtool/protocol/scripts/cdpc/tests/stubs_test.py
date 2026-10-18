@@ -10,6 +10,7 @@ from pathlib import Path
 from cdpc import repo, scan, stubs
 from cdpc.codegen import BackendMethod
 from cdpc.repo import CdpcError
+from cdpc.tests import contract_test
 
 
 HEADER = """\
@@ -205,6 +206,93 @@ class ScaffoldTest(unittest.TestCase):
             (self.agent_dir / "inspector_sample_agent.h").read_text(encoding="utf-8"),
             "// mine\n",
         )
+
+
+class MigrationTest(contract_test.ContractTestBase):
+    """stubs --apply state A writes an adapter; state C deletes the domain legacy block."""
+
+    def test_state_a_forwards_and_state_c_removes_the_legacy_block(self):
+        self.support.write_text(
+            "Board:\n  codegen: typed\n  validation: legacy\n"
+            "  legacy:\n"
+            "    agent: devtool/lynx_devtool/agent/domain_agent/inspector_board_agent.cc\n"
+            "    order: [enable]\n    migrated: []\n",
+            encoding="utf-8",
+        )
+        self.write_doc("Board/methods/enable.yaml", "summary: Enable.\nparameters: []\n")
+        agent_dir = self.root / "devtool" / "lynx_devtool" / "agent" / "domain_agent"
+        agent_dir.mkdir(parents=True)
+        (agent_dir / "inspector_board_agent.cc").write_text(
+            "void InspectorBoardAgent::InspectorBoardAgent() {\n"
+            "  functions_map_[\"Board.enable\"] = &InspectorBoardAgent::Enable;\n"
+            "}\n"
+            "void InspectorBoardAgent::Enable() {\n"
+            "  devtool_mediator_->BoardEnable(responder, params);\n"
+            "}\n",
+            encoding="utf-8",
+        )
+        (agent_dir / "inspector_board_agent.h").write_text(
+            "class InspectorBoardAgent : public CDPDomainAgentBase {\n"
+            "  void Enable();\n"
+            "};\n",
+            encoding="utf-8",
+        )
+        mediator = agent_dir.parent
+        (mediator / "lynx_devtool_mediator.cc").write_text(
+            "void LynxDevToolMediator::BoardEnable() {\n"
+            "  if (!RunOnTASMThread([] {})) {}\n"
+            "}\n",
+            encoding="utf-8",
+        )
+        (self.root / "agent" / "BUILD.gn").parent.mkdir(exist_ok=True)
+        (self.root / "agent" / "BUILD.gn").write_text(
+            'sources = [\n    "inspector_board_agent.cc",\n]\n',
+            encoding="utf-8",
+        )
+        registration = self.root / "lynx_devtool_ng.cc"
+        registration.write_text(
+            'RegisterAgent("Board", std::make_unique<InspectorBoardAgent>(devtool_mediator_));\n',
+            encoding="utf-8",
+        )
+
+        class FakePaths:
+            source_root = self.root
+            domain_agent_dir = agent_dir
+            protocol_dir = self.root
+            support_file = self.support
+            registration_source = registration
+            clang_format = self.root / "missing-clang-format"
+
+        contracts = self.load()
+        report = stubs.apply_to_domain(FakePaths(), contracts, "Board")
+        self.assertIn("state A", report)
+        adapter = (agent_dir / "inspector_board_legacy_adapter.cc").read_text(encoding="utf-8")
+        self.assertIn("devtool_mediator_->BoardEnable(call.responder, call.message[\"params\"]);", adapter)
+        header = (agent_dir / "inspector_board_agent.h").read_text(encoding="utf-8")
+        self.assertIn("protocol::board::Backend", header)
+        self.assertIn("EnableRaw", header)
+        self.assertIn(
+            "protocol::board::CreateAgent",
+            registration.read_text(encoding="utf-8"),
+        )
+        self.assertIn("inspector_board_legacy_adapter.cc", (self.root / "agent" / "BUILD.gn").read_text())
+        self.assertTrue((self.root / "testdata" / "golden" / "Board.golden.jsonl").exists())
+
+        # Cover every method, then state C deletes the adapter and the legacy block.
+        self.support.write_text(
+            "Board:\n  codegen: typed\n  validation: legacy\n"
+            "  legacy:\n"
+            "    agent: devtool/lynx_devtool/agent/domain_agent/inspector_board_agent.cc\n"
+            "    order: [enable]\n    migrated: [enable]\n"
+            "  golden:\n    file: testdata/golden/Board.golden.jsonl\n",
+            encoding="utf-8",
+        )
+        contracts = self.load()
+        report = stubs.apply_to_domain(FakePaths(), contracts, "Board")
+        self.assertIn("state C", report)
+        self.assertFalse((agent_dir / "inspector_board_legacy_adapter.h").exists())
+        self.assertNotIn("\n  legacy:", "\n" + self.support.read_text(encoding="utf-8"))
+        self.assertIn("golden:", self.support.read_text(encoding="utf-8"))
 
 
 class LicenseHeaderTest(unittest.TestCase):

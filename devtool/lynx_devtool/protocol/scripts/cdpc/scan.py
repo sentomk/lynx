@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Optional
 
@@ -347,3 +347,324 @@ def class_body(text: str, class_name: str) -> tuple[int, int]:
             if depth == 0:
                 return match.end(), index
     raise CdpcError(f"unbalanced braces in class {class_name}")
+
+
+# ---------------------------------------------------------------------------
+# Legacy migration inference. Regex only: anything uncertain becomes a TODO.
+
+
+HANDLER_ASSIGN_RE = re.compile(
+    r'functions_map_\["([A-Za-z0-9]+\.([A-Za-z0-9_]+))"\]\s*=\s*&\w+::(\w+)\s*;'
+)
+PARAMS_READ_RE = re.compile(r'(?:params|message)\[\s*"([A-Za-z0-9_]+)"\s*\]')
+RESULT_WRITE_RE = re.compile(r'result\[\s*"([A-Za-z0-9_]+)"\s*\]')
+SEND_ERROR_RE = re.compile(
+    r'SendError\(\s*CDPErrorCode::(\w+)\s*,\s*"([^"\\]*)"\s*\)'
+)
+MEMBER_GUARD_RE = re.compile(r'isMember\(\s*"([A-Za-z0-9_]+)"\s*\)')
+MEDIATOR_CALL_RE = re.compile(r'devtool_mediator_->(\w+)\s*\(')
+EXECUTOR_CALL_RE = re.compile(r'executor->(\w+)\s*\(')
+FUNCTION_DEF_RE = re.compile(r'\b(\w+)::(\w+)\s*\([^;]*\)\s*\{')
+DECLARE_CDP_RE = re.compile(r"DECLARE_DEVTOOL_CDP_METHOD\((\w+)\)")
+CALL_RE_TEMPLATE = r"\b{name}\s*\("
+
+
+@dataclass
+class InferredParam:
+    name: str
+    type_name: Optional[str]
+    optional: bool
+    todo: Optional[str] = None
+
+
+@dataclass
+class InferredError:
+    field: str
+    reason: str
+    code: str
+    message: str
+
+
+@dataclass
+class InferredMethod:
+    name: str
+    handler: str
+    thread: str
+    validate: str
+    params: list[InferredParam] = field(default_factory=list)
+    errors: list[InferredError] = field(default_factory=list)
+    todos: list[str] = field(default_factory=list)
+    # Mediator method the agent forwards to, when the regex can see it.
+    mediator_method: Optional[str] = None
+
+
+@dataclass
+class InferredDomain:
+    order: list[str]
+    methods: list[InferredMethod]
+    todos: list[str] = field(default_factory=list)
+
+
+def infer_legacy_domain(
+    domain: str, agent_text: str, related: Optional[dict[str, str]] = None
+) -> InferredDomain:
+    """Draft `legacy` fields from an old agent and the handlers it forwards to.
+
+    `related` maps a file label to source text (mediator, executor). Inference
+    follows one mediator hop and one executor hop. A field it cannot type is
+    left as TODO(cdpc).
+    """
+
+    related = related or {}
+    found = InferredDomain(order=[], methods=[])
+    for match in HANDLER_ASSIGN_RE.finditer(agent_text):
+        full, method, handler = match.group(1), match.group(2), match.group(3)
+        if not full.startswith(domain + "."):
+            continue
+        found.order.append(method)
+        bodies = [function_body(agent_text, handler)]
+        thread = "none"
+        validate = "decode"
+        mediator_call = _first(MEDIATOR_CALL_RE, bodies[0])
+        if mediator_call and "mediator" in related:
+            mediator_body = function_body(related["mediator"], mediator_call)
+            bodies.append(mediator_body)
+            if "RunOnTASMThread" in mediator_body:
+                thread = "tasm"
+                validate = "handler"
+            elif "RunOnUIThread" in mediator_body:
+                thread = "ui"
+                validate = "handler"
+            elif "RunOnDevToolThread" in mediator_body:
+                thread = "devtool"
+                validate = "handler"
+            executor_call = _first(EXECUTOR_CALL_RE, mediator_body)
+            if executor_call and "executor" in related:
+                bodies.append(function_body(related["executor"], executor_call))
+        elif mediator_call:
+            found.todos.append(
+                f"{method}: mediator call {mediator_call} but no mediator source was provided"
+            )
+        item = InferredMethod(
+            name=method,
+            handler=handler,
+            thread=thread,
+            validate=validate,
+            mediator_method=mediator_call,
+        )
+        combined = "\n".join(bodies)
+        item.params = _infer_params(combined)
+        item.errors = _infer_errors(combined, item.params)
+        if not item.params and "params[" in combined:
+            item.todos.append(f"{method}: params reads were not recognized")
+        found.methods.append(item)
+    if not found.order:
+        found.todos.append(f"no functions_map_ entries for {domain}")
+    return found
+
+
+def function_body(text: str, name: str) -> str:
+    """Body of the first `::name(...) {` definition, or empty when it is absent."""
+
+    for match in FUNCTION_DEF_RE.finditer(text):
+        if match.group(2) != name:
+            continue
+        try:
+            return extract_braced_block(text, match.end() - 1)
+        except CdpcError:
+            return ""
+    return ""
+
+
+def _first(pattern: re.Pattern, text: str) -> Optional[str]:
+    match = pattern.search(text)
+    return match.group(1) if match else None
+
+
+def _infer_params(body: str) -> list[InferredParam]:
+    optional = set(MEMBER_GUARD_RE.findall(body))
+    params = []
+    seen = set()
+    for name in PARAMS_READ_RE.findall(body):
+        if name in seen:
+            continue
+        seen.add(name)
+        window = _window(body, name)
+        type_name = _type_from_window(window)
+        todo = None if type_name else "type not recognized from asXxx/isObject"
+        params.append(InferredParam(name, type_name, name in optional or "empty()" in window, todo))
+    return params
+
+
+def _window(body: str, name: str) -> str:
+    index = body.find(f'"{name}"')
+    if index < 0:
+        return ""
+    return body[index : index + 180]
+
+
+def _type_from_window(window: str) -> Optional[str]:
+    if ".isObject()" in window:
+        return "object"
+    if ".isArray()" in window:
+        return "array"
+    if ".asBool()" in window:
+        return "boolean"
+    if ".asDouble()" in window:
+        return "number"
+    if ".asInt()" in window or ".asInt64()" in window or ".asUInt64()" in window:
+        return "integer"
+    if ".asString()" in window:
+        return "string"
+    return None
+
+
+def _infer_errors(body: str, params: list[InferredParam]) -> list[InferredError]:
+    errors = []
+    for code, message in SEND_ERROR_RE.findall(body):
+        field = ""
+        reason = "type"
+        for param in params:
+            if param.name and param.name in message:
+                field = param.name
+                break
+        if "must be an object" in message or "unexpected type" in message or "isObject" in body:
+            reason = "type"
+        elif "missing" in message.lower():
+            reason = "missing"
+        errors.append(InferredError(field=field, reason=reason, code=code, message=message))
+    return errors
+
+
+def parse_removed_declarations(diff_text: str) -> list[str]:
+    """Method names whose DECLARE_DEVTOOL_CDP_METHOD line was deleted."""
+
+    removed = []
+    for line in diff_text.splitlines():
+        if not line.startswith("-") or line.startswith("---"):
+            continue
+        match = DECLARE_CDP_RE.search(line[1:])
+        if match and match.group(1) not in removed:
+            removed.append(match.group(1))
+    return removed
+
+
+def find_removed_callers(root: Path, names: Iterable[str], display) -> list[str]:
+    """`file:line: calls removed Name` for each call under `root`, including tests."""
+
+    names = list(names)
+    if not names or not root.exists():
+        return []
+    patterns = [(name, re.compile(CALL_RE_TEMPLATE.format(name=re.escape(name)))) for name in names]
+    found = []
+    for path in sorted(root.rglob("*")):
+        if path.suffix not in {".h", ".cc", ".mm"} or ".generated." in path.name:
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+        except OSError:
+            continue
+        relative = display(path)
+        for number, line in enumerate(lines, 1):
+            if "DECLARE_DEVTOOL_CDP_METHOD" in line:
+                continue
+            code = line.split("//", 1)[0]
+            for name, pattern in patterns:
+                if pattern.search(code):
+                    found.append(f"{relative}:{number}: calls removed {name}")
+    return found
+
+
+def merge_base(source_root: Path) -> Optional[str]:
+    """Commit to diff against when looking for declarations this branch removed."""
+
+    import os
+    import subprocess
+
+    override = os.environ.get("CDPC_MERGE_BASE")
+    if override:
+        return override
+    for candidate in ("origin/develop", "develop"):
+        try:
+            return subprocess.check_output(
+                ["git", "merge-base", "HEAD", candidate],
+                cwd=source_root,
+                text=True,
+                stderr=subprocess.DEVNULL,
+            ).strip()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            continue
+    return None
+
+
+def removed_declarations_since(source_root: Path, base: str) -> list[str]:
+    import subprocess
+
+    diff = subprocess.check_output(
+        ["git", "diff", "-U0", base, "--", "devtool"],
+        cwd=source_root,
+        text=True,
+        stderr=subprocess.DEVNULL,
+    )
+    return parse_removed_declarations(diff)
+
+
+def declarations_still_present(root: Path, names: Iterable[str]) -> set[str]:
+    """Names that still have a method declaration under `root`.
+
+    A typed override (`void Name(...) override;`) counts, so renaming a
+    DECLARE_DEVTOOL_CDP_METHOD into a Backend method does not look like a
+    deletion. Calls such as `executor->Name(...)` do not.
+    """
+
+    pending = set(names)
+    if not pending or not root.exists():
+        return set()
+    patterns = {
+        name: re.compile(
+            rf"DECLARE_DEVTOOL_CDP_METHOD\(\s*{re.escape(name)}\s*\)"
+            rf"|\b{re.escape(name)}\s*\([^;{{]*\)\s*(?:const\s*)?override\s*;"
+            rf"|\b{re.escape(name)}\s*\([^;{{]*\)\s*(?:const\s*)?=\s*0\s*;"
+            rf"|(?:^|\n)\s*(?:virtual\s+)?[\w:<>,*&]+(?:\s+[\w:<>,*&]+)*\s+"
+            rf"{re.escape(name)}\s*\([^;{{]*\)\s*(?:const\s*)?;",
+            re.MULTILINE,
+        )
+        for name in pending
+    }
+    found: set[str] = set()
+    for path in sorted(root.rglob("*.h")):
+        if ".generated." in path.name:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        for name in list(pending):
+            if patterns[name].search(text):
+                found.add(name)
+                pending.discard(name)
+        if not pending:
+            break
+    return found
+
+
+def scan_removed_symbols(paths: Paths) -> list[str]:
+    """Call sites of CDP methods whose declaration this branch deleted.
+
+    Compares `devtool/` with `git merge-base HEAD origin/develop` (or
+    `CDPC_MERGE_BASE`). A name that is still declared on another class, such
+    as `Enable`, is not reported. The message is `file:line: calls removed Name`.
+    """
+
+    import subprocess
+
+    base = merge_base(paths.source_root)
+    if not base:
+        return []
+    devtool = paths.source_root / "devtool"
+    try:
+        names = removed_declarations_since(paths.source_root, base)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return []
+    gone = [name for name in names if name not in declarations_still_present(devtool, names)]
+    return find_removed_callers(devtool, gone, lambda path: relative_path(paths, path))

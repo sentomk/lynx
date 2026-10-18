@@ -121,6 +121,46 @@ def typed_leftovers_message(leftovers: list[LocalMethod]) -> str:
     )
 
 
+def fully_migrated(contracts: contract.ContractSet, domain: str) -> bool:
+    """True when `legacy.migrated` names every method of a legacy-validation domain."""
+
+    legacy = contracts.domain_legacy.get(domain)
+    if legacy is None:
+        return contract.domain_validation(contracts, domain) != "legacy"
+    names = {
+        entry.name
+        for entry in contract.typed_entries(contracts, domain)
+        if entry.kind == "method"
+    }
+    return bool(names) and set(legacy.migrated) >= names
+
+
+def partition_leftovers(
+    leftovers: list[LocalMethod], contracts: contract.ContractSet
+) -> tuple[list[LocalMethod], list[LocalMethod]]:
+    """Split leftovers into (errors, warnings).
+
+    While `legacy.agent` still points at the old file and `migrated` does not
+    cover every method, leftovers in that file are warnings. Leftovers anywhere
+    else, and every leftover after the domain is fully migrated, stay errors.
+    """
+
+    errors: list[LocalMethod] = []
+    warnings: list[LocalMethod] = []
+    for item in leftovers:
+        legacy = contracts.domain_legacy.get(item.domain)
+        agent = legacy.agent if legacy is not None else None
+        if (
+            agent
+            and not fully_migrated(contracts, item.domain)
+            and (item.source == agent or item.source.endswith("/" + Path(agent).name))
+        ):
+            warnings.append(item)
+        else:
+            errors.append(item)
+    return errors, warnings
+
+
 def add_typed_methods(
     paths: Paths,
     local_methods: list[LocalMethod],

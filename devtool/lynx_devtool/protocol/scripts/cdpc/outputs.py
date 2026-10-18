@@ -7,12 +7,13 @@
 from __future__ import annotations
 
 import difflib
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from cdpc import codegen, contract, inventory, manifest, scan, schema_cpp, style
+from cdpc import codegen, contract, golden, inventory, manifest, scan, schema_cpp, style
 from cdpc.repo import CdpcError, EnvError, Paths, license_header, relative_path
 from cdpc.scan import LocalMethod
 
@@ -203,16 +204,16 @@ def write(paths: Paths, contracts: contract.ContractSet, require_primjs: bool) -
         report.warn("advisory", f"missing docs ({len(missing_docs)})", detail)
     for hint in missing_override_hints(paths, contracts):
         report.warn("advisory", hint.split("\n", 1)[0], hint)
-    if generated.leftovers:
-        report.error(
-            "legacy",
-            _leftover_summary(generated.leftovers),
-            inventory.typed_leftovers_message(generated.leftovers),
-        )
+    _record_leftovers(report, contracts, generated.leftovers)
     return report.finish()
 
 
-def check(paths: Paths, contracts: contract.ContractSet, require_primjs: bool) -> int:
+def check(
+    paths: Paths,
+    contracts: contract.ContractSet,
+    require_primjs: bool,
+    golden_bin: Optional[Path] = None,
+) -> int:
     """`cdpc check`: fail when docs or generated files are wrong, then one conclusion."""
 
     report = Report("check")
@@ -226,13 +227,45 @@ def check(paths: Paths, contracts: contract.ContractSet, require_primjs: bool) -
         generated.local_methods,
         generated.upstream_methods,
     )
-    if generated.leftovers:
+    _record_leftovers(report, contracts, generated.leftovers)
+    golden_errors, golden_warnings = golden.check_golden(paths, contracts)
+    for warning in golden_warnings:
+        report.warn("golden", warning.split("\n", 1)[0], warning)
+    for error in golden_errors:
+        report.error("golden", error.split("\n", 1)[0], error)
+    for caller in scan.scan_removed_symbols(paths):
+        report.error("callers", caller, caller)
+    executable = golden_bin
+    if executable is None and os.environ.get("CDPC_GOLDEN_BIN"):
+        executable = Path(os.environ["CDPC_GOLDEN_BIN"])
+    if executable is not None:
+        # A missing binary is an environment error (exit 3). A failing replay
+        # is a golden error (exit 1).
+        try:
+            golden.run_golden_bin(executable)
+        except golden.GoldenError as exc:
+            report.error("golden", "golden replay failed", str(exc))
+    return report.finish()
+
+
+def _record_leftovers(
+    report: Report, contracts: contract.ContractSet, leftovers: list[LocalMethod]
+) -> None:
+    """Errors for leftovers, except the old agent file during a partial migration."""
+
+    errors, warnings = inventory.partition_leftovers(leftovers, contracts)
+    for item in warnings:
+        detail = (
+            f"{item.domain}.{item.method} in {item.source} is still forwarded by the "
+            "legacy adapter; it becomes an error once legacy.migrated covers every method"
+        )
+        report.warn("legacy", f"legacy leftover {item.domain}.{item.method}", detail)
+    if errors:
         report.error(
             "legacy",
-            _leftover_summary(generated.leftovers),
-            inventory.typed_leftovers_message(generated.leftovers),
+            _leftover_summary(errors),
+            inventory.typed_leftovers_message(errors),
         )
-    return report.finish()
 
 
 def build_generated_cpp(

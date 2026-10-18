@@ -16,7 +16,7 @@ import unittest
 from pathlib import Path
 from typing import Callable, Optional
 
-from cdpc import diff, inventory, outputs, query, stubs, style, upstream
+from cdpc import diff, golden, inventory, outputs, query, stubs, style, upstream
 from cdpc.repo import CdpcError, EnvError, Paths, get_paths
 
 
@@ -28,13 +28,17 @@ manifest, the runtime contract checker and generated C++.
 
 commands:
   write [--require-primjs]          regenerate the manifest and generated C++
-  check [--require-primjs]          fail if docs are invalid or outputs are stale
+  check [--require-primjs] [--golden-bin EXEC]
+                                    fail if docs are invalid or outputs are stale;
+                                    --golden-bin replays *Golden* tests
                                     write and check end with one conclusion line
   list [Domain|Domain.glob ...] [--methods|--events] [--standard|--lynx]
        [--no-docs]                  list implemented methods and sent events
   show <Domain.name>                print one entry's effective contract
-  stubs <Domain> [--apply]          print Backend overrides of a typed domain;
-                                    --apply adds the missing ones in place
+  stubs <Domain> [--apply] [--import-session FILE]
+                                    print Backend overrides of a typed domain;
+                                    --apply migrates or adds the missing ones;
+                                    --import-session scrubs a captured CDP log
   diff [Domain ...] [--require-primjs]
                                     list how Lynx differs from upstream CDP
   upstream write|check [options]    update or check cdp_upstream/protocol.json;
@@ -94,11 +98,17 @@ def cmd_write(argv: list[str]) -> int:
 
 
 def cmd_check(argv: list[str]) -> int:
-    options = _parser("check", "Fail if docs are invalid or outputs are stale.", True).parse_args(
-        argv
+    parser = _parser("check", "Fail if docs are invalid or outputs are stale.", True)
+    parser.add_argument(
+        "--golden-bin",
+        help="replay *Golden* gtests in this executable; missing file is exit 3",
     )
+    options = parser.parse_args(argv)
     paths = get_paths()
-    return outputs.check(paths, inventory.load_contracts(paths), options.require_primjs)
+    golden_bin = Path(options.golden_bin) if options.golden_bin else None
+    return outputs.check(
+        paths, inventory.load_contracts(paths), options.require_primjs, golden_bin
+    )
 
 
 def cmd_list(argv: list[str]) -> int:
@@ -140,14 +150,28 @@ def cmd_stubs(argv: list[str]) -> int:
     parser.add_argument(
         "--apply", action="store_true", help="add missing overrides to the Backend implementation"
     )
+    parser.add_argument(
+        "--import-session",
+        metavar="FILE",
+        help="scrub a captured CDP session and store it under testdata/golden/sessions",
+    )
     options = parser.parse_args(argv)
     paths = get_paths()
     contracts = _contracts(paths)
+    if options.import_session:
+        target, count = golden.import_session(paths, options.domain, Path(options.import_session))
+        print(style.item("+", f"imported {count} scrubbed messages to {relative_display(paths, target)}", "green"))
     if options.apply:
         print(stubs.apply_to_domain(paths, contracts, options.domain), end="")
-    else:
+    elif not options.import_session:
         print(stubs.declarations(contracts, options.domain), end="")
     return 0
+
+
+def relative_display(paths: Paths, path: Path) -> str:
+    from cdpc.repo import relative_path
+
+    return relative_path(paths, path)
 
 
 def cmd_diff(argv: list[str]) -> int:

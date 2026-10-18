@@ -65,6 +65,14 @@ class InventoryTest(TempRepoTestCase):
             "Board.old in board.cc",
             inventory.typed_leftovers_message([legacy]),
         )
+        contracts.domain_legacy["Board"] = contract.DomainLegacy(
+            agent="devtool/board_agent.cc", order=["old"], migrated=[]
+        )
+        in_agent = scan.LocalMethod("Board", "old", "devtool/board_agent.cc")
+        elsewhere = scan.LocalMethod("Board", "old", "devtool/other.cc")
+        errors, warnings = inventory.partition_leftovers([in_agent, elsewhere], contracts)
+        self.assertEqual(warnings, [in_agent])
+        self.assertEqual(errors, [elsewhere])
 
     def test_standard_typed_domain_methods_point_at_their_contract(self):
         upstream = contract.Upstream(

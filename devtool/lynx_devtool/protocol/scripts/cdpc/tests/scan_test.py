@@ -101,5 +101,101 @@ class ScanTest(TempRepoTestCase):
             )
 
 
+class InferenceTest(unittest.TestCase):
+    def test_infers_order_thread_and_object_error_from_a_global_props_snippet(self):
+        agent = """
+        InspectorGlobalPropsAgent::InspectorGlobalPropsAgent() {
+          functions_map_["GlobalProps.enable"] = &InspectorGlobalPropsAgent::Enable;
+          functions_map_["GlobalProps.disable"] = &InspectorGlobalPropsAgent::Disable;
+          functions_map_["GlobalProps.get"] = &InspectorGlobalPropsAgent::Get;
+          functions_map_["GlobalProps.replace"] = &InspectorGlobalPropsAgent::Replace;
+        }
+        void InspectorGlobalPropsAgent::Replace() {
+          devtool_mediator_->GlobalPropsReplace(responder, params);
+        }
+        void InspectorGlobalPropsAgent::Enable() {
+          devtool_mediator_->GlobalPropsEnable(responder, params);
+        }
+        """
+        mediator = """
+        void LynxDevToolMediator::GlobalPropsReplace() {
+          if (!RunOnTASMThread([executor] { executor->GlobalPropsReplace(responder, params); })) {}
+        }
+        void LynxDevToolMediator::GlobalPropsEnable() {
+          if (!RunOnTASMThread([executor] { executor->GlobalPropsEnable(responder, params); })) {}
+        }
+        """
+        executor = """
+        void InspectorTasmExecutor::GlobalPropsReplace() {
+          const Json::Value& global_props = params["globalProps"];
+          if (!global_props.isObject()) {
+            responder->SendError(CDPErrorCode::InvalidParams, "globalProps must be an object");
+            return;
+          }
+        }
+        void InspectorTasmExecutor::GlobalPropsEnable() {}
+        """
+        found = scan.infer_legacy_domain(
+            "GlobalProps", agent, {"mediator": mediator, "executor": executor}
+        )
+        self.assertEqual(found.order, ["enable", "disable", "get", "replace"])
+        replace = found.methods[-1]
+        self.assertEqual(replace.thread, "tasm")
+        self.assertEqual(replace.validate, "handler")
+        self.assertEqual(replace.mediator_method, "GlobalPropsReplace")
+        self.assertEqual(replace.params[0].name, "globalProps")
+        self.assertEqual(replace.params[0].type_name, "object")
+        self.assertEqual(replace.errors[0].message, "globalProps must be an object")
+        self.assertEqual(replace.errors[0].code, "InvalidParams")
+
+    def test_unknown_param_type_is_a_todo(self):
+        agent = """
+        void Agent::Agent() { functions_map_["Box.set"] = &Agent::Set; }
+        void Agent::Set() { auto value = params["payload"]; }
+        """
+        found = scan.infer_legacy_domain("Box", agent, {})
+        self.assertEqual(found.methods[0].params[0].todo, "type not recognized from asXxx/isObject")
+
+    def test_removed_declarations_and_their_callers(self):
+        diff = """\
+--- a/executor.h
++++ b/executor.h
+@@
+-  DECLARE_DEVTOOL_CDP_METHOD(GlobalPropsReplace);
+   void GlobalPropsChanged();
+-  DECLARE_DEVTOOL_CDP_METHOD(GlobalPropsEnable);
+"""
+        self.assertEqual(
+            scan.parse_removed_declarations(diff),
+            ["GlobalPropsReplace", "GlobalPropsEnable"],
+        )
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(root))
+        source = root / "executor_unittest.cc"
+        source.write_text(
+            "  element_executor_->GlobalPropsReplace(responder, params);\n"
+            "  // GlobalPropsEnable(ignored);\n"
+            "  DECLARE_DEVTOOL_CDP_METHOD(GlobalPropsEnable);\n"
+            "  element_executor_->GlobalPropsChanged();\n",
+            encoding="utf-8",
+        )
+        callers = scan.find_removed_callers(
+            root, ["GlobalPropsReplace", "GlobalPropsEnable"], lambda path: path.name
+        )
+        self.assertEqual(callers, [f"{source.name}:1: calls removed GlobalPropsReplace"])
+        (root / "still.h").write_text(
+            "  DECLARE_DEVTOOL_CDP_METHOD(GlobalPropsEnable);\n"
+            "  void GetSharedData(protocol::white_board::GetSharedDataResponder responder) override;\n"
+            "  executor->GlobalPropsReplace(responder, params);\n",
+            encoding="utf-8",
+        )
+        self.assertEqual(
+            scan.declarations_still_present(
+                root, ["GlobalPropsReplace", "GlobalPropsEnable", "GetSharedData"]
+            ),
+            {"GlobalPropsEnable", "GetSharedData"},
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

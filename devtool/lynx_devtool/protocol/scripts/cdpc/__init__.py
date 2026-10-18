@@ -13,7 +13,7 @@ LAYERS = {
     # and the contract model built from custom_cdp_docs.
     "base": ["repo", "style", "contract"],
     # Data derived from the contract and the sources.
-    "data": ["codegen", "scan", "manifest", "schema_cpp", "changes", "inventory"],
+    "data": ["codegen", "scan", "manifest", "schema_cpp", "changes", "inventory", "golden"],
     # One module per command group.
     "commands": ["outputs", "query", "diff", "stubs", "upstream"],
     "entry": ["__main__"],
