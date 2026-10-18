@@ -105,10 +105,14 @@ tools/cdpc test
   - Prints one entry's effective contract: the upstream shape with deviations and docs additions applied. Each field is labeled `upstream`, `docs`, `added in docs`, or `added/retyped/omitted by deviation: <reason>`; docs fields the contract drops are listed as `ignored`.
   - Also prints where it is implemented or sent from, its docs, scope, typed codegen, lifecycle, the upstream link and the fields of referenced `$ref` types.
   - Upstream entries Lynx does not implement are shown too, so their shape can be looked up before implementing them.
-- `stubs <Domain> [--apply]`
+- `stubs <Domain> [--apply] [--import-session FILE]`
   - Prints the Backend override declarations of a typed domain to stdout. It writes no files.
   - `--apply` adds the missing overrides to the only class under `devtool/` that derives from `protocol::<namespace>::Backend`: declarations after its last Backend override, and definitions before the closing namespaces of the `.cc` next to the header. Each new definition replies `MethodNotFound` ("`<Domain.method>` is not implemented"), so the build passes and an unfilled method fails visibly instead of getting the empty fallback success. Only the inserted lines are formatted.
-  - Existing code is never changed. Overrides of methods the Backend no longer has are reported for removal by hand. Test doubles that implement the Backend, such as a `DirectBackend` in a unittest `.cc`, are not touched.
+  - When the domain is mid-migration, `--apply` follows that state instead: an old agent with no Backend gets an adapter and a golden harness; an adapter is rewritten as `legacy.migrated` grows; a fully migrated domain loses the adapter and the domain-level `legacy:` block. See `agents/cdp_contract.md`, "Migrating an existing domain".
+  - Existing hand-written method bodies are not rewritten. Overrides of methods the Backend no longer has are reported for removal by hand. Test doubles that implement the Backend, such as a `DirectBackend` in a unittest `.cc`, are not touched.
+  - `--import-session` filters a captured CDP log to this domain, scrubs user content, and writes `testdata/golden/sessions/`. The rules are the docstring of `scripts/cdpc/golden.py`.
+- `check [--golden-bin EXEC]`
+  - Also checks golden files, scrubbed sessions, and callers of CDP methods whose declaration this branch removed. `--golden-bin` (or `CDPC_GOLDEN_BIN`) replays `*Golden*` tests. A missing executable is exit status 3.
 - `diff [Domain ...]`
   - Prints how Lynx differs from `cdp_upstream/protocol.json` for every standard domain Lynx touches, or only the given ones. It writes no files.
   - Methods: upstream methods Lynx does not implement, Lynx-extension methods, and implemented upstream methods without docs (their shape is assumed to match upstream).
@@ -119,7 +123,8 @@ tools/cdpc test
   - Without it, a missing PrimJS source keeps the PrimJS rows from the checked-in manifest and prints an unverified warning, so local checkouts without PrimJS still work.
   - CI should pass it so a missing PrimJS source fails instead of silently reusing rows.
 - `test`
-  - Runs the unit tests in `scripts/cdpc/tests/`.
+  - Runs the unit tests in `scripts/cdpc/tests/`. `tools/cdpc` is a bash wrapper around `tools/env.sh python3 -m cdpc`, not a Python script.
+- `write` and `check` end with one conclusion line. Exit status 0 means no error (warnings are allowed), 1 means at least one error, 2 is usage, and 3 is a missing environment (clang-format, PrimJS with `--require-primjs`, a golden executable, or a symlink that leaves the checkout).
 - `--color=auto|always|never` (any position; `--no-color` is `never`)
   - Output marks every line with a symbol, so it reads the same without color: `+` added, `-` missing or omitted, `~` retyped, `!` ignored, `?` no docs, `==` section.
   - `auto` colors only an interactive terminal that is not `TERM=dumb`, and follows `NO_COLOR` and `FORCE_COLOR`. Color only adds escape codes; stripping them gives the plain output, which `tests/style_test.py` checks.
@@ -143,6 +148,7 @@ tools/cdpc test
 | data | `schema_cpp` | `cdp_contract_schema.generated.{h,cc}` for the runtime checker |
 | data | `changes` | Field-level differences between an upstream entry and its contract |
 | data | `inventory` | Loads contracts and joins them with the scans; typed-domain method inventory |
+| data | `golden` | Request matrix, session scrubbing, golden-file checks, and the replay unittest |
 | commands | `outputs` | `write` and `check`: every generated file |
 | commands | `query` | `list` and `show` |
 | commands | `diff` | `diff` |
@@ -500,11 +506,11 @@ Examples:
 Domains marked `codegen: typed` get C++ types in `lynx::devtool::protocol::<domain_snake_case>`:
 
 - `<Method>Params` and `<Method>Result` for methods with fields, and one struct per event named after the event.
-- `bool Decode(const Json::Value& params, <Method>Params*, std::string* error)`. Declared fields are checked for presence and type; unknown fields are ignored. On failure `error` names the field, such as `params.value: expected string`, and the handler replies `InvalidParams` with it.
+- `bool Decode(const Json::Value& params, <Method>Params*, std::string* error)`. Declared fields are checked for presence and type; unknown fields are ignored. On failure `error` names the field, such as `params.value: has an unexpected type` or `params.value: missing required field`. A value that is not an object fails as `params: expected object`. The handler replies `InvalidParams` with that text unless `legacy.errors` replaces it.
 - `Json::Value Encode(const <Method>Result&)` returns the result object for `CDPResponder::SendSuccess`.
 - `Json::Value Encode(const <Event>&)` returns the complete event message.
 
-Type mapping: `string` -> `std::string`, `integer` -> `int64_t`, `number` -> `double`, `boolean` -> `bool`, objects with fields -> nested structs named `<Parent><Field>` (`<Parent><Field>Item` for array elements, override with `typeName`), `a.<key>` -> `std::map<std::string, T>`, arrays -> `std::vector<T>`, optional fields -> `std::optional<T>`. `any`, unions, and objects without fields are `Json::Value`. String enums and union kinds are checked on decode, including inside arrays and maps (`cdp::CheckEach`).
+Type mapping: `string` -> `std::string`, `integer` -> `int64_t`, `number` -> `double`, `boolean` -> `bool`, objects with fields -> nested structs named `<Parent><Field>` (`<Parent><Field>Item` for array elements, override with `typeName`), `a.<key>` -> `std::map<std::string, T>`, arrays -> `std::vector<T>`, optional fields -> `std::optional<T>`. `any`, unions, and objects without fields are `Json::Value`. An object without fields is still type-checked: Decode accepts only a JSON object, and rejects an array, string, number, boolean, or null with `has an unexpected type` (or `expected object` when the params value itself is not an object). String enums and union kinds are checked on decode, including inside arrays and maps (`cdp::CheckEach`).
 
 `$ref` types:
 
@@ -515,7 +521,9 @@ Type mapping: `string` -> `std::string`, `integer` -> `int64_t`, `number` -> `do
 
 Not supported yet: `root: true`. The update script fails on it.
 
-Method inventory: typed domains are not scanned. Their methods are the generated entries; `source` is the docs file, or `cdp_support.yaml` for an undocumented standard method. Legacy `functions_map_` or `if (method == ...)` declarations left in a typed domain fail the update script, so a standard domain moves to typed in one step.
+Method inventory: typed domains are not scanned. Their methods are the generated entries; `source` is the docs file, or `cdp_support.yaml` for an undocumented standard method. Legacy `functions_map_` or `if (method == ...)` declarations left in a typed domain fail the update script, so a standard domain moves to typed in one step. While `legacy.agent` names the old file and `legacy.migrated` does not yet list every method, leftovers in that file are warnings.
+
+`validation` is `strict` (the default, WhiteBoard) or `legacy`. Under `legacy`, a method omitted from `legacy.migrated` is forwarded as `cdp::RawCall` with no Decode. A method with `legacy.validate: handler` takes `cdp::Deferred<Params>` so Decode runs when the Backend calls `Get()`, after its thread hop. `legacy.errors` replaces the codec message for one field and reason. `legacy.order`, when present, is the dispatch order; otherwise methods stay alphabetical. `golden.file` is a JSONL of replay cases. `golden.volatile` names fields replaced after a type check (`monotonic`). `golden.allowedDiffs` entries need `case`, `path`, `from`, `to`, and `reason`.
 
 The codegen fixture under `testdata/fixture/` has its own vendored schema, support file and docs, and covers every shape above. `tools/cdpc write` regenerates `testdata/fixture/fixture_protocol.generated.{h,cc}` into the `protocol_fixture` namespace and `tools/cdpc check` verifies it; `cdp_protocol_fixture_unittest.cc` compiles and exercises it. Extend the fixture when adding a codegen feature.
 

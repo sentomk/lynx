@@ -124,11 +124,79 @@ declarations fail the update script.
 - Engine-forwarded domains (Debugger, Runtime, Profiler, HeapProfiler) stay out
   of codegen.
 
+## Migrating an existing domain
+
+Move one Lynx-extension domain off `functions_map_` without changing the bytes
+the old agent sent. `validation` stays `legacy` until a frontend can accept the
+codec's own error text. WhiteBoard is already `strict` and does not use these
+fields.
+
+1. Mark the domain in `cdp_support.yaml`:
+
+   ```yaml
+   GlobalProps:
+     codegen: typed
+     validation: legacy   # default is strict
+     legacy:              # only while some methods are still forwarded
+       agent: devtool/lynx_devtool/agent/domain_agent/inspector_global_props_agent.cc
+       order: [enable, disable, get, replace]
+       migrated: []
+     golden:
+       file: devtool/lynx_devtool/protocol/testdata/golden/GlobalProps.golden.jsonl
+       volatile:
+         - path: params.timestamp
+           kind: monotonic
+   ```
+
+2. `tools/cdpc stubs <Domain> --apply` (state A) infers what a regex can see
+   from the old agent, mediator and executor. It does not overwrite docs that
+   already exist; differences are `~` lines. Anything it cannot type is
+   `TODO(cdpc)`, and `check` fails until that marker is gone. The command
+   writes a Backend that forwards through
+   `inspector_<ns>_legacy_adapter`, rewrites `RegisterAgent` to `CreateAgent`,
+   and writes the golden harness. There is no new cdpc subcommand.
+3. Record once, while the adapter still calls the old handlers:
+   `CDPC_GOLDEN_RECORD=1 <devtool_agent_unittest_exec> --gtest_filter=*Golden*`.
+   Replay compares canonical JSON (sorted keys, compact). `1` and `1.0` differ.
+   Fields listed in `golden.volatile` are type-checked and then replaced.
+4. Move one method into `legacy.migrated` and run `stubs --apply` again
+   (state B). The adapter drops that forward. A method with
+   `legacy.validate: handler` takes `cdp::Deferred<Params>` and calls `Get()`
+   after the thread hop, so "runner missing" still wins over a params error.
+   `legacy.errors` keeps the old message (`globalProps must be an object`
+   instead of `params.globalProps: has an unexpected type`).
+5. When `migrated` lists every method, `stubs --apply` (state C) deletes the
+   adapter and the domain-level `legacy:` block. Method-level `legacy:` stays
+   while `validation` is `legacy`. Delete the old mediator and executor CDP
+   methods. `check` reports `file:line: calls removed Name` for a
+   `DECLARE_DEVTOOL_CDP_METHOD` this branch deleted that no header still
+   declares.
+6. Switch to `validation: strict` only with `golden.allowedDiffs` (each entry
+   needs `reason`, exact `path`, and a `case` glob). `expires: '4.4'` fails
+   `check` once the Lynx version reaches it.
+
+`stubs <Domain> --import-session capture.cdp.jsonl` keeps this domain's
+messages and scrubs them before writing
+`testdata/golden/sessions/<Domain>.<stem>.cdp.jsonl`. URLs become
+`https://placeholder.invalid/scrubbed`. Under user-content objects (`globalProps`,
+`pageData`, `props`, `data`, and the other keys named in `golden.py`) leaves
+become a placeholder of the same JSON type. `error.code` and `error.message`
+stay. `check` rejects a stored session that still contains another URL or an
+e-mail address.
+
+`write` and `check` print one conclusion line. Exit 0 is clean (warnings
+allowed), 1 is a contract or golden error, 2 is usage, 3 is a missing tool,
+PrimJS source, golden executable, or a symlink that leaves the checkout.
+
+`tools/cdpc` is a bash wrapper. It runs `tools/env.sh python3 -m cdpc`. It is
+not a Python script.
+
 ## Verification
 
 Unit test targets: `cdp_contract_checker_unittest_exec`,
 `shared_data_unittest_exec`, `devtool_agent_unittest_exec` and
-`devtool_base_unittest_exec`. Python tests are in `protocol/scripts/cdpc/*_test.py`.
+`devtool_base_unittest_exec`. Python tests are in `protocol/scripts/cdpc/tests/`.
+`tools/cdpc test` discovers `*_test.py` there.
 
 The runtime checker only observes `ViewMessageChannel` and
 `GlobalMessageChannel` traffic. Calls made through `InvokeCDPFromSDK` are not
