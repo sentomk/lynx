@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import sys
 
-from cdpc import emit, inventory, lint, model, trace
+from cdpc import emit, inventory, lint, model, trace, scaffold, upstream
 
 
 def output(problems, summary, format='text', **data):
@@ -34,7 +34,17 @@ def parser():
     show.add_argument('target', nargs='?')
     verify = commands.add_parser('verify', help='check recorded JSONL traffic against YAML')
     verify.add_argument('inputs', nargs='+', metavar='TRACE_OR_TARGET')
-    for command in (check, write, show, verify):
+    new = commands.add_parser('new', help='create one editable YAML contract')
+    new.add_argument('name')
+    new.add_argument('--event', action='store_true')
+    new.add_argument('--from-upstream', action='store_true')
+    up = commands.add_parser('upstream', help='update or compare the upstream snapshot')
+    operations = up.add_subparsers(dest='operation', required=True)
+    update = operations.add_parser('update', help='fetch upstream and regenerate metadata')
+    update.add_argument('--revision', help='devtools-protocol revision (default: master)')
+    diff = operations.add_parser('diff', help='compare registrations, events and deviations')
+    diff.add_argument('domain', nargs='?')
+    for command in (check, write, show, verify, new, update, diff):
         command.add_argument('--format', choices=('text','json'), default='text')
     return cli
 
@@ -79,7 +89,32 @@ def main(argv=None):
     args = parser().parse_args(argv)
     repo = model.Repo.current()
     try:
+        if args.command == 'upstream' and args.operation == 'update':
+            log = upstream.update(repo, args.revision)
+            contract, sources = load(repo)
+            problems = lint.check(repo, contract)
+            updated = emit.write(emit.generate(repo, contract, sources))
+            return output(problems, f'cdpc upstream update: updated {len(updated)} generated files',
+                          args.format, update_log=log)
         contract, sources = load(repo, getattr(args, 'strict', False))
+        if args.command == 'new':
+            path, problems = scaffold.create(repo, contract, args.name,
+                                             event=args.event, from_upstream=args.from_upstream)
+            summary = 'cdpc new: not created' if problems else (
+                f'cdpc new: {repo.relative(path)}\n'
+                f'Next: edit the YAML, {"connect the event sender" if args.event else "register and implement the method"}, '
+                f'run tools/cdpc write and tools/cdpc check {args.name}.')
+            return output(problems, summary, args.format, path=str(path))
+        if args.command == 'upstream':
+            report = upstream.diff(repo, contract, sources, args.domain)
+            if args.format == 'text':
+                for label, values in report.items():
+                    print(f'{label}: {len(values)}')
+                    for value in values:
+                        print('  ' + (json.dumps(value, ensure_ascii=False, sort_keys=True)
+                                      if isinstance(value, dict) else value))
+            return output([], 'cdpc upstream diff: source inventory is not runtime coverage',
+                          args.format, **report)
         if args.command == 'verify':
             paths, targets = trace.split_inputs(args.inputs)
             problems, count = trace.verify(contract, paths, targets)

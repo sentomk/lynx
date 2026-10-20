@@ -17,4 +17,3 @@ Tracing:
       kind: added
       as: {type: boolean, optional: true}
       reason: Marks the tracingComplete event sent for a startup tracing file.
-
