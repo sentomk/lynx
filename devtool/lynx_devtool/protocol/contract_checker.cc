@@ -378,6 +378,19 @@ void ContractChecker::OnOutgoingMessage(const void* channel,
              std::move(problems));
   }
 }
+void ContractChecker::OnResponseDropped(const void* channel, int64_t id) {
+  std::string method;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto pending = pending_.find({reinterpret_cast<uintptr_t>(channel), id});
+    if (pending == pending_.end() || pending->second.dropped) return;
+    pending->second.dropped = true;
+    method = pending->second.method;
+  }
+  Report(ContractViolation::Kind::kDropped, method, id,
+         {"responder destroyed without an explicit reply"});
+}
+
 void ContractChecker::Flush() {
   std::vector<ContractViolation> violations;
   {

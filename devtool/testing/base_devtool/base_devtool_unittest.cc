@@ -153,6 +153,52 @@ TEST_F(BaseDevToolTest, DispatchCDPMessageRejectsNonObjectRoot) {
   EXPECT_NE(response.find("Message must be a JSON object"), std::string::npos);
 }
 
+class DroppedResponseObserver : public devtool::CDPTrafficObserver {
+ public:
+  void OnIncomingMessage(const void*, const Json::Value&) override {}
+  void OnOutgoingMessage(const void*, const Json::Value&) override {}
+  void OnResponseDropped(const void* value, int64_t request_id) override {
+    channel = value;
+    id = request_id;
+    ++count;
+  }
+  const void* channel = nullptr;
+  int64_t id = 0;
+  int count = 0;
+};
+
+TEST_F(BaseDevToolTest, CDPResponderNotifiesBeforeFallback) {
+  auto sender = std::make_shared<devtool::MessageSenderMock>();
+  auto observer = std::make_shared<DroppedResponseObserver>();
+  devtool::SetCDPTrafficObserver(observer);
+  { devtool::CDPResponder responder(sender, 123); }
+  EXPECT_EQ(observer->count, 1);
+  EXPECT_EQ(observer->channel, sender.get());
+  EXPECT_EQ(observer->id, 123);
+  devtool::SetCDPTrafficObserver(nullptr);
+}
+
+TEST_F(BaseDevToolTest, CDPResponderExplicitReplyOrTransferDoesNotNotify) {
+  auto sender = std::make_shared<devtool::MessageSenderMock>();
+  auto observer = std::make_shared<DroppedResponseObserver>();
+  devtool::SetCDPTrafficObserver(observer);
+  {
+    devtool::CDPResponder responder(sender, 1);
+    responder.SendSuccess();
+  }
+  {
+    devtool::CDPResponder responder(sender, 2);
+    responder.SendError(devtool::CDPErrorCode::ServerError);
+  }
+  {
+    devtool::CDPResponder responder(sender, 3);
+    responder.RetrieveSender();
+  }
+  { devtool::CDPResponder responder(sender, std::nullopt); }
+  EXPECT_EQ(observer->count, 0);
+  devtool::SetCDPTrafficObserver(nullptr);
+}
+
 TEST_F(BaseDevToolTest, CDPResponderSendsSuccess) {
   auto sender = std::make_shared<CapturingMessageSender>();
   {

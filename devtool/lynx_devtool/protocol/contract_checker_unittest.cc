@@ -139,6 +139,18 @@ TEST_F(ContractCheckerTest, DuplicateAndChannelIsolation) {
   EXPECT_EQ(violations[0].method, "Lynx.getLogLevel");
   EXPECT_EQ(violations[0].id, 1);
 }
+TEST_F(ContractCheckerTest, DroppedResponseIsReportedOnlyOnce) {
+  checker->OnIncomingMessage(this, Request());
+  checker->OnResponseDropped(this, 1);
+  checker->OnResponseDropped(this, 1);
+  checker->OnOutgoingMessage(this, Parse(R"({"id":1,"result":{}})"));
+  checker->Flush();
+  ASSERT_EQ(violations.size(), 1u);
+  EXPECT_EQ(violations[0].kind, Kind::kDropped);
+  EXPECT_EQ(violations[0].method, "Lynx.getLogLevel");
+  EXPECT_EQ(violations[0].id, 1);
+}
+
 TEST_F(ContractCheckerTest, FlushReportsUnansweredOnce) {
   checker->OnIncomingMessage(this, Request());
   checker->Flush();

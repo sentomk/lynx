@@ -30,14 +30,17 @@ ObserverSlot& GetSlot() {
   return *slot;
 }
 
-std::shared_ptr<CDPTrafficObserver> GetObserver(const std::string& type) {
+std::shared_ptr<CDPTrafficObserver> GetObserver() {
   ObserverSlot& slot = GetSlot();
-  if (!slot.installed.load(std::memory_order_acquire) ||
-      type != kCDPMessageType) {
+  if (!slot.installed.load(std::memory_order_acquire)) {
     return nullptr;
   }
   std::lock_guard<std::mutex> lock(slot.mutex);
   return slot.observer;
+}
+
+std::shared_ptr<CDPTrafficObserver> GetObserver(const std::string& type) {
+  return type == kCDPMessageType ? GetObserver() : nullptr;
 }
 
 bool ParseMessage(const std::string& message, Json::Value* out) {
@@ -52,6 +55,12 @@ void SetCDPTrafficObserver(std::shared_ptr<CDPTrafficObserver> observer) {
   std::lock_guard<std::mutex> lock(slot.mutex);
   slot.installed.store(observer != nullptr, std::memory_order_release);
   slot.observer = std::move(observer);
+}
+
+void NotifyCDPResponseDropped(const void* channel, int64_t id) {
+  if (auto observer = GetObserver()) {
+    observer->OnResponseDropped(channel, id);
+  }
 }
 
 void NotifyCDPIncomingMessage(const void* channel, const std::string& type,

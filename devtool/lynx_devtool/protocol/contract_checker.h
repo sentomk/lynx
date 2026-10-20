@@ -53,6 +53,7 @@ class ContractChecker : public CDPTrafficObserver {
                          const Json::Value& message) override;
   void OnOutgoingMessage(const void* channel,
                          const Json::Value& message) override;
+  void OnResponseDropped(const void* channel, int64_t id) override;
   void Flush();
 
  private:

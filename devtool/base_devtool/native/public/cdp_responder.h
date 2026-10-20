@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "devtool/base_devtool/native/public/cdp_error_code.h"
+#include "devtool/base_devtool/native/public/cdp_traffic_observer.h"
 #include "devtool/base_devtool/native/public/message_sender.h"
 #include "third_party/jsoncpp/include/json/json.h"
 
@@ -58,6 +59,9 @@ class CDPResponder {
   // use. This is what guarantees "exactly one response per request".
   ~CDPResponder() {
     if (sender_) {
+      if (id_.has_value()) {
+        NotifyCDPResponseDropped(sender_.get(), *id_);
+      }
       SendSuccess();
     }
   }

@@ -5,6 +5,7 @@
 #ifndef DEVTOOL_BASE_DEVTOOL_NATIVE_PUBLIC_CDP_TRAFFIC_OBSERVER_H_
 #define DEVTOOL_BASE_DEVTOOL_NATIVE_PUBLIC_CDP_TRAFFIC_OBSERVER_H_
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
@@ -30,10 +31,12 @@ class CDPTrafficObserver {
                                  const Json::Value& message) = 0;
   virtual void OnOutgoingMessage(const void* channel,
                                  const Json::Value& message) = 0;
+  virtual void OnResponseDropped(const void* channel, int64_t id) {}
 };
 
 // Installs the process-wide observer. Pass nullptr to remove it.
 void SetCDPTrafficObserver(std::shared_ptr<CDPTrafficObserver> observer);
+void NotifyCDPResponseDropped(const void* channel, int64_t id);
 
 // Called by message channels. Messages of other types are ignored, and string
 // messages are parsed only while an observer is installed.
