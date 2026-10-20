@@ -2,15 +2,10 @@
 # Licensed under the Apache License Version 2.0 that can be found in the
 # LICENSE file in the root directory of this source tree.
 
-"""cdpc: the Lynx DevTool CDP Contract tool. Commands are in __main__.py.
-
-A module may import only modules listed before it in LAYERS, and command
-modules never import each other; tests/layering_test.py enforces both.
-"""
-
+"""Contract model, checks and CLI. Module imports only point downward."""
 LAYERS = {
-    "base": ["repo", "style", "contract"],
-    "data": ["scan", "manifest", "inventory", "outputs"],
-    "commands": ["upstream"],
-    "entry": ["__main__"],
+    'base': ['schema', 'model'],
+    'data': ['lint', 'inventory', 'emit'],
+    'commands': [],
+    'entry': ['__main__'],
 }

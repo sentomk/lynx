@@ -1,0 +1,91 @@
+{
+  "events": {
+    "GlobalProps.changed": {
+      "params": {
+        "properties": {
+          "changes": {
+            "schema": {
+              "items": {
+                "properties": {
+                  "operation": {
+                    "schema": {
+                      "enum": [
+                        "replace"
+                      ],
+                      "type": "string"
+                    }
+                  }
+                },
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "timestamp": {
+            "schema": {
+              "type": "integer"
+            }
+          }
+        },
+        "type": "object"
+      }
+    }
+  },
+  "examples": [],
+  "methods": {
+    "Lynx.getLogLevel": {
+      "params": {
+        "properties": {},
+        "type": "object"
+      },
+      "returns": {
+        "properties": {
+          "nativeCompileLevel": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "runtimeLevel": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        },
+        "type": "object"
+      }
+    },
+    "WhiteBoard.getSharedData": {
+      "params": {
+        "properties": {},
+        "type": "object"
+      },
+      "returns": {
+        "properties": {
+          "entries": {
+            "schema": {
+              "items": {
+                "properties": {
+                  "key": {
+                    "schema": {
+                      "type": "string"
+                    }
+                  },
+                  "value": {
+                    "schema": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "type": "object"
+              },
+              "type": "array"
+            }
+          }
+        },
+        "type": "object"
+      }
+    }
+  },
+  "types": {},
+  "version": 1
+}

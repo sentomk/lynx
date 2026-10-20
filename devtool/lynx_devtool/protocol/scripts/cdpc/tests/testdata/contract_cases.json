@@ -1,0 +1,78 @@
+[
+  {
+    "direction": "result",
+    "name": "getLogLevel result field typo",
+    "problems": [
+      "result.runtimeLevel: missing required field",
+      "result.runtimeLevell: unexpected field"
+    ],
+    "schema_entry": "Lynx.getLogLevel",
+    "value": {
+      "nativeCompileLevel": "MONITOR",
+      "runtimeLevell": "INFO"
+    }
+  },
+  {
+    "direction": "result",
+    "name": "getLogLevel result type",
+    "problems": [
+      "result.runtimeLevel: expected string"
+    ],
+    "schema_entry": "Lynx.getLogLevel",
+    "value": {
+      "nativeCompileLevel": "MONITOR",
+      "runtimeLevel": 2
+    }
+  },
+  {
+    "direction": "result",
+    "name": "missing entries",
+    "problems": [
+      "result.entries: missing required field"
+    ],
+    "schema_entry": "WhiteBoard.getSharedData",
+    "value": {}
+  },
+  {
+    "direction": "result",
+    "name": "nested entry missing key",
+    "problems": [
+      "result.entries[0].key: missing required field",
+      "result.entries[0].other: unexpected field"
+    ],
+    "schema_entry": "WhiteBoard.getSharedData",
+    "value": {
+      "entries": [
+        {
+          "other": 1,
+          "value": "x"
+        }
+      ]
+    }
+  },
+  {
+    "direction": "event",
+    "name": "unknown operation",
+    "problems": [
+      "params.changes[0].operation: 'set' is not an allowed value"
+    ],
+    "schema_entry": "GlobalProps.changed",
+    "value": {
+      "changes": [
+        {
+          "operation": "set"
+        }
+      ],
+      "timestamp": 1
+    }
+  },
+  {
+    "direction": "params",
+    "name": "request extensions allowed",
+    "problems": [],
+    "schema_entry": "Lynx.getLogLevel",
+    "value": {
+      "future": true
+    }
+  }
+]
