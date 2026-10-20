@@ -1,6 +1,0 @@
-summary: Standard getNode with a Lynx-only parameter.
-parameters:
-  - name: withBox
-    type: boolean
-    optional: true
-    description: Lynx extension that also fills the node box.

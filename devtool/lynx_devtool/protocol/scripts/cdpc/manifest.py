@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+import yaml
+
 from cdpc import contract
 from cdpc.repo import CdpcError, Paths, license_header, relative_path
 from cdpc.scan import LocalMethod
@@ -40,114 +42,31 @@ class ExistingManifest:
 def load_existing_manifest(manifest_path: Path) -> ExistingManifest:
     """Read prior generated metadata so new writes can preserve `since` history."""
 
-    domains: set[str] = set()
-    methods: set[tuple[str, str]] = set()
-    events: set[tuple[str, str]] = set()
-    method_since: dict[tuple[str, str], str] = {}
-    event_since: dict[tuple[str, str], str] = {}
-    method_source: dict[tuple[str, str], str] = {}
-
+    result = ExistingManifest(set(), set(), set(), {}, {}, {})
     if not manifest_path.exists():
-        return ExistingManifest(
-            domains=domains,
-            methods=methods,
-            events=events,
-            method_since=method_since,
-            event_since=event_since,
-            method_source=method_source,
-        )
-
-    current_domain: Optional[str] = None
-    current_section: Optional[str] = None
-    current_entry: Optional[tuple[str, str]] = None
-
-    for line in manifest_path.read_text(encoding="utf-8").splitlines():
-        domain_match = re.fullmatch(r"  - name: (.+)", line)
-        if domain_match:
-            current_domain = parse_yaml_scalar(domain_match.group(1))
-            domains.add(current_domain)
-            current_section = None
-            current_entry = None
-            continue
-
-        if current_domain is None:
-            continue
-
-        section_match = re.fullmatch(r"    (methods|events|deviations):", line)
-        if section_match:
-            current_section = section_match.group(1)
-            current_entry = None
-            continue
-        if current_section == "deviations":
-            continue
-
-        entry_match = re.fullmatch(r"      - name: (.+)", line)
-        if entry_match and current_section:
-            current_entry = (
-                current_domain,
-                parse_yaml_scalar(entry_match.group(1)),
-            )
-            if current_section == "methods":
-                methods.add(current_entry)
-            else:
-                events.add(current_entry)
-            continue
-
-        entry_since_match = re.fullmatch(r"        since: (.+)", line)
-        if entry_since_match and current_section and current_entry:
-            since = parse_yaml_scalar(entry_since_match.group(1))
-            if current_section == "methods":
-                method_since[current_entry] = since
-            else:
-                event_since[current_entry] = since
-            continue
-
-        entry_source_match = re.fullmatch(r"        source: (.+)", line)
-        if entry_source_match and current_section == "methods" and current_entry:
-            method_source[current_entry] = parse_yaml_scalar(entry_source_match.group(1))
-
-    return ExistingManifest(
-        domains=domains,
-        methods=methods,
-        events=events,
-        method_since=method_since,
-        event_since=event_since,
-        method_source=method_source,
-    )
-
-
-def load_upstream_methods(schema_path: Path) -> dict[str, set[str]]:
-    if not schema_path.exists():
-        raise CdpcError(
-            f"missing vendored CDP schema: {schema_path}\n"
-            "Add devtool/lynx_devtool/protocol/cdp_upstream/protocol.json first."
-        )
+        return result
     try:
-        schema = json.loads(schema_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise CdpcError(f"invalid JSON in {schema_path}: {exc}") from exc
-
-    domains = schema.get("domains")
-    if not isinstance(domains, list):
-        raise CdpcError(f"{schema_path} must contain a top-level domains array")
-
-    upstream: dict[str, set[str]] = {}
-    for domain_entry in domains:
-        if not isinstance(domain_entry, dict):
-            continue
-        domain = domain_entry.get("domain")
-        if not isinstance(domain, str):
-            continue
-        commands = domain_entry.get("commands", [])
-        if not isinstance(commands, list):
-            commands = []
-        methods = {
-            command["name"]
-            for command in commands
-            if isinstance(command, dict) and isinstance(command.get("name"), str)
-        }
-        upstream[domain] = methods
-    return upstream
+        # BaseLoader preserves numeric-looking versions and YAML words as text.
+        document = yaml.load(
+            manifest_path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader
+        ) or {}
+        for domain in document.get("domains", []) or []:
+            name = domain["name"]
+            result.domains.add(name)
+            for section, entries, history in (
+                ("methods", result.methods, result.method_since),
+                ("events", result.events, result.event_since),
+            ):
+                for entry in domain.get(section, []) or []:
+                    key = (name, entry["name"])
+                    entries.add(key)
+                    if "since" in entry:
+                        history[key] = entry["since"]
+                    if section == "methods" and "source" in entry:
+                        result.method_source[key] = entry["source"]
+    except (yaml.YAMLError, AttributeError, KeyError, TypeError) as exc:
+        raise CdpcError(f"invalid generated manifest {manifest_path}: {exc}") from exc
+    return result
 
 
 def build_manifest(
@@ -358,20 +277,3 @@ def yaml_scalar(value: str) -> str:
 
 def yaml_quoted_string(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
-
-
-def parse_yaml_scalar(value: str) -> str:
-    value = value.strip()
-    if len(value) >= 2 and value[0] == value[-1] == '"':
-        try:
-            loaded = json.loads(value)
-        except json.JSONDecodeError as exc:
-            raise CdpcError(
-                f"invalid generated YAML string scalar: {value}"
-            ) from exc
-        if not isinstance(loaded, str):
-            raise CdpcError(f"expected generated YAML string scalar: {value}")
-        return loaded
-    if len(value) >= 2 and value[0] == value[-1] == "'":
-        return value[1:-1].replace("''", "'")
-    return value

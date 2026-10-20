@@ -5,7 +5,6 @@ import("../../../testing/test.gni")
 import("../devtool.gni")
 
 devtool_source_set("shared_data") {
-  public_deps = [ "../protocol" ]
   sources = [
     "white_board_inspector_delegate.cc",
     "white_board_inspector_delegate.h",

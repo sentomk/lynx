@@ -2,13 +2,7 @@
 # Licensed under the Apache License Version 2.0 that can be found in the
 # LICENSE file in the root directory of this source tree.
 #
-# Lynx CDP support settings:
-# - `codegen: typed` generates C++ types for a Lynx-extension domain into
-#   cdp_protocol.generated.{h,cc}.
-# - `deviations` are shape differences from the vendored upstream schema. They
-#   are applied on top of cdp_upstream/protocol.json before docs examples are
-#   validated, and are exported to cdp_manifest.generated.yaml.
-# See cdp_metadata_workflow.md for the field rules.
+# Lynx deviations from cdp_upstream/protocol.json.
 
 Debugger:
   deviations:
@@ -24,20 +18,3 @@ Tracing:
       as: {type: boolean, optional: true}
       reason: Marks the tracingComplete event sent for a startup tracing file.
 
-WhiteBoard:
-  codegen: typed
-
-# validation: legacy keeps the old wire text (globalProps must be an object,
-# unavailable before decode when the TASM runner is missing). The domain-level
-# legacy block is gone: every method is typed. replace.yaml still carries the
-# method-level legacy errors.
-GlobalProps:
-  codegen: typed
-  validation: legacy
-  golden:
-    file: devtool/lynx_devtool/protocol/testdata/golden/GlobalProps.golden.jsonl
-    volatile:
-      - path: params.timestamp
-        kind: monotonic
-      - path: result.timestamp
-        kind: monotonic

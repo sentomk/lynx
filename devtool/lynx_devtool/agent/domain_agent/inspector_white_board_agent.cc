@@ -4,85 +4,66 @@
 
 #include "devtool/lynx_devtool/agent/domain_agent/inspector_white_board_agent.h"
 
-#include <utility>
-
 #include "devtool/lynx_devtool/agent/lynx_devtool_mediator.h"
-#include "devtool/lynx_devtool/shared_data/white_board_inspector_delegate.h"
 
 namespace lynx {
 namespace devtool {
 
-namespace white_board = protocol::white_board;
-
 InspectorWhiteBoardAgent::InspectorWhiteBoardAgent(
     const std::shared_ptr<LynxDevToolMediator>& devtool_mediator)
-    : devtool_mediator_(devtool_mediator) {}
+    : devtool_mediator_(devtool_mediator) {
+  functions_map_["WhiteBoard.enable"] = &InspectorWhiteBoardAgent::Enable;
+  functions_map_["WhiteBoard.disable"] = &InspectorWhiteBoardAgent::Disable;
+  functions_map_["WhiteBoard.setSharedData"] =
+      &InspectorWhiteBoardAgent::SetSharedData;
+  functions_map_["WhiteBoard.getSharedData"] =
+      &InspectorWhiteBoardAgent::GetSharedData;
+  functions_map_["WhiteBoard.removeSharedData"] =
+      &InspectorWhiteBoardAgent::RemoveSharedData;
+  functions_map_["WhiteBoard.clear"] = &InspectorWhiteBoardAgent::Clear;
+}
 
-template <typename Responder>
-void InspectorWhiteBoardAgent::Run(
-    const Responder& responder,
-    std::function<void(WhiteBoardInspectorDelegate&)> call) {
-  const bool dispatched =
-      devtool_mediator_ &&
-      devtool_mediator_->RunOnWhiteBoard(
-          [responder,
-           call = std::move(call)](WhiteBoardInspectorDelegate* delegate) {
-            if (delegate == nullptr) {
-              responder.SendError(CDPErrorCode::ServerError,
-                                  "WhiteBoard inspector delegate is not "
-                                  "attached");
-              return;
-            }
-            call(*delegate);
-          });
-  if (!dispatched) {
-    responder.SendError(CDPErrorCode::ServerError,
-                        "No WhiteBoard task runner is available");
+void InspectorWhiteBoardAgent::CallMethod(
+    const std::shared_ptr<CDPResponder>& responder,
+    const Json::Value& message) {
+  std::string method = message["method"].asString();
+  auto it = functions_map_.find(method);
+  if (it == functions_map_.end()) {
+    responder->SendError(CDPErrorCode::MethodNotFound,
+                         "'" + method + "' wasn't found");
+  } else {
+    (this->*(it->second))(responder, message["params"]);
   }
 }
 
-void InspectorWhiteBoardAgent::Clear(white_board::ClearResponder responder) {
-  Run(responder, [responder](WhiteBoardInspectorDelegate& delegate) {
-    delegate.Clear(responder);
-  });
+void InspectorWhiteBoardAgent::Enable(
+    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
+  devtool_mediator_->WhiteBoardEnable(responder, params);
 }
 
 void InspectorWhiteBoardAgent::Disable(
-    white_board::DisableResponder responder) {
-  Run(responder, [responder](WhiteBoardInspectorDelegate& delegate) {
-    delegate.Disable(responder);
-  });
-}
-
-void InspectorWhiteBoardAgent::Enable(white_board::EnableResponder responder) {
-  Run(responder, [responder](WhiteBoardInspectorDelegate& delegate) {
-    delegate.Enable(responder);
-  });
-}
-
-void InspectorWhiteBoardAgent::GetSharedData(
-    white_board::GetSharedDataResponder responder) {
-  Run(responder, [responder](WhiteBoardInspectorDelegate& delegate) {
-    delegate.GetSharedData(responder);
-  });
-}
-
-void InspectorWhiteBoardAgent::RemoveSharedData(
-    white_board::RemoveSharedDataResponder responder,
-    white_board::RemoveSharedDataParams params) {
-  Run(responder, [responder, params = std::move(params)](
-                     WhiteBoardInspectorDelegate& delegate) {
-    delegate.RemoveSharedData(responder, params);
-  });
+    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
+  devtool_mediator_->WhiteBoardDisable(responder, params);
 }
 
 void InspectorWhiteBoardAgent::SetSharedData(
-    white_board::SetSharedDataResponder responder,
-    white_board::SetSharedDataParams params) {
-  Run(responder, [responder, params = std::move(params)](
-                     WhiteBoardInspectorDelegate& delegate) {
-    delegate.SetSharedData(responder, params);
-  });
+    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
+  devtool_mediator_->WhiteBoardSetSharedData(responder, params);
+}
+
+void InspectorWhiteBoardAgent::GetSharedData(
+    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
+  devtool_mediator_->WhiteBoardGetSharedData(responder, params);
+}
+
+void InspectorWhiteBoardAgent::RemoveSharedData(
+    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
+  devtool_mediator_->WhiteBoardRemoveSharedData(responder, params);
+}
+
+void InspectorWhiteBoardAgent::Clear(
+    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
+  devtool_mediator_->WhiteBoardClear(responder, params);
 }
 
 }  // namespace devtool

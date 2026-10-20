@@ -9,16 +9,10 @@
 #include "devtool/lynx_devtool/js_debug/inspector_client_delegate_impl.h"
 #include "devtool/lynx_devtool/js_debug/java_script_debugger_ng.h"
 #include "devtool/lynx_devtool/js_debug/js/inspector_runtime_observer_impl.h"
+#include "devtool/lynx_devtool/shared_data/white_board_inspector_runtime_delegate.h"
 
 namespace lynx {
-namespace tasm {
-class WhiteBoardDelegate;
-}  // namespace tasm
-
 namespace devtool {
-
-class WhiteBoardInspectorDelegate;
-class WhiteBoardInspectorRuntimeDelegate;
 
 class InspectorJavaScriptDebuggerImpl : public JavaScriptDebuggerNG {
  public:
@@ -56,8 +50,12 @@ class InspectorJavaScriptDebuggerImpl : public JavaScriptDebuggerNG {
 
   void RunOnTargetThread(base::closure&& closure, bool run_now = true) override;
 
-  // WhiteBoard domain: the attached delegate, or nullptr.
-  WhiteBoardInspectorDelegate* FindWhiteBoardInspectorDelegate() const;
+  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardEnable);
+  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardDisable);
+  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardSetSharedData);
+  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardGetSharedData);
+  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardRemoveSharedData);
+  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardClear);
 
  private:
   std::shared_ptr<InspectorRuntimeObserverImpl> observer_;

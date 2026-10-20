@@ -21,6 +21,7 @@
 #include "devtool/lynx_devtool/agent/agent_defines.h"
 #include "devtool/lynx_devtool/agent/devtool_platform_facade.h"
 #include "devtool/lynx_devtool/agent/inspector_animation_controller.h"
+#include "devtool/lynx_devtool/shared_data/white_board_inspector_tasm_delegate.h"
 #include "third_party/jsoncpp/include/json/json.h"
 
 namespace lynx {
@@ -43,8 +44,6 @@ namespace lynx {
 namespace devtool {
 
 class CDPResponder;
-class WhiteBoardInspectorDelegate;
-class WhiteBoardInspectorTasmDelegate;
 class LynxDevToolMediator;
 
 class InspectorTasmExecutor
@@ -211,17 +210,20 @@ class InspectorTasmExecutor
   // DOM ScrollIntoViewIfNeeded
   DECLARE_DEVTOOL_METHOD(ScrollIntoViewIfNeeded)
 
-  // GlobalProps domain. CDP dispatch lives on InspectorGlobalPropsAgent.
-  // CopyGlobalProps is an empty object when tasm is null.
-  Json::Value CopyGlobalProps() const;
-  // False when |global_props| is not an object or tasm is null. |error| is
-  // the legacy CDP message for that case.
-  bool ReplaceGlobalProps(const Json::Value& global_props, std::string* error);
+  // GlobalProps domain
+  DECLARE_DEVTOOL_CDP_METHOD(GlobalPropsEnable);
+  DECLARE_DEVTOOL_CDP_METHOD(GlobalPropsDisable);
+  DECLARE_DEVTOOL_CDP_METHOD(GlobalPropsGet);
+  DECLARE_DEVTOOL_CDP_METHOD(GlobalPropsReplace);
   void GlobalPropsChanged();
 
-  // WhiteBoard domain: the attached delegate, or nullptr. Unlike
-  // GetWhiteBoardInspectorDelegate() it never creates one.
-  WhiteBoardInspectorDelegate* FindWhiteBoardInspectorDelegate() const;
+  // WhiteBoard domain
+  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardEnable);
+  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardDisable);
+  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardSetSharedData);
+  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardGetSharedData);
+  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardRemoveSharedData);
+  DECLARE_DEVTOOL_CDP_METHOD(WhiteBoardClear);
 
  public:
   // layout domain event

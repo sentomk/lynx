@@ -356,19 +356,19 @@ domains:
       - name: disable
         origin: lynx-extension
         since: '4.3'
-        source: devtool/lynx_devtool/protocol/custom_cdp_docs/GlobalProps/methods/disable.yaml
+        source: devtool/lynx_devtool/agent/domain_agent/inspector_global_props_agent.cc
       - name: enable
         origin: lynx-extension
         since: '4.3'
-        source: devtool/lynx_devtool/protocol/custom_cdp_docs/GlobalProps/methods/enable.yaml
+        source: devtool/lynx_devtool/agent/domain_agent/inspector_global_props_agent.cc
       - name: get
         origin: lynx-extension
         since: '4.3'
-        source: devtool/lynx_devtool/protocol/custom_cdp_docs/GlobalProps/methods/get.yaml
+        source: devtool/lynx_devtool/agent/domain_agent/inspector_global_props_agent.cc
       - name: replace
         origin: lynx-extension
         since: '4.3'
-        source: devtool/lynx_devtool/protocol/custom_cdp_docs/GlobalProps/methods/replace.yaml
+        source: devtool/lynx_devtool/agent/domain_agent/inspector_global_props_agent.cc
     events:
       - name: changed
         origin: lynx-extension
@@ -913,27 +913,27 @@ domains:
       - name: clear
         origin: lynx-extension
         since: '4.1'
-        source: devtool/lynx_devtool/protocol/custom_cdp_docs/WhiteBoard/methods/clear.yaml
+        source: devtool/lynx_devtool/agent/domain_agent/inspector_white_board_agent.cc
       - name: disable
         origin: lynx-extension
         since: '4.1'
-        source: devtool/lynx_devtool/protocol/custom_cdp_docs/WhiteBoard/methods/disable.yaml
+        source: devtool/lynx_devtool/agent/domain_agent/inspector_white_board_agent.cc
       - name: enable
         origin: lynx-extension
         since: '4.1'
-        source: devtool/lynx_devtool/protocol/custom_cdp_docs/WhiteBoard/methods/enable.yaml
+        source: devtool/lynx_devtool/agent/domain_agent/inspector_white_board_agent.cc
       - name: getSharedData
         origin: lynx-extension
         since: '4.1'
-        source: devtool/lynx_devtool/protocol/custom_cdp_docs/WhiteBoard/methods/getSharedData.yaml
+        source: devtool/lynx_devtool/agent/domain_agent/inspector_white_board_agent.cc
       - name: removeSharedData
         origin: lynx-extension
         since: '4.1'
-        source: devtool/lynx_devtool/protocol/custom_cdp_docs/WhiteBoard/methods/removeSharedData.yaml
+        source: devtool/lynx_devtool/agent/domain_agent/inspector_white_board_agent.cc
       - name: setSharedData
         origin: lynx-extension
         since: '4.1'
-        source: devtool/lynx_devtool/protocol/custom_cdp_docs/WhiteBoard/methods/setSharedData.yaml
+        source: devtool/lynx_devtool/agent/domain_agent/inspector_white_board_agent.cc
     events:
       - name: onSharedDataAdded
         origin: lynx-extension

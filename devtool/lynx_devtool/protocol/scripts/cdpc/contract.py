@@ -32,6 +32,7 @@ from typing import Any, Optional
 import yaml
 
 
+
 KINDS = frozenset(
     {"string", "integer", "number", "boolean", "object", "array", "any", "null"}
 )
@@ -79,11 +80,12 @@ EVENT_MESSAGE_KEYS = frozenset({"method", "params", "sessionId"})
 ERROR_KEYS = frozenset({"code", "message", "data"})
 ROOT_NAMES = {"parameters": "params", "returns": "result"}
 SUPPORT_DOMAIN_KEYS = frozenset(
-    {"deviations", "codegen", "methods", "events", "validation", "legacy", "golden"}
+    {"deviations", "cdpc", "methods", "events", "validation", "legacy", "golden"}
 )
 # Implemented inside the JS engines; Lynx only forwards their messages.
 ENGINE_DOMAINS = frozenset({"Debugger", "Runtime", "HeapProfiler", "Profiler"})
-CODEGEN_MODES = frozenset({"typed"})
+CDPC_MODES = ("contract", "types", "dispatch")
+ENTRY_SUPPORT_KEYS = frozenset({"cdpc", "reason"})
 VALIDATION_MODES = frozenset({"legacy", "strict"})
 LEGACY_DOMAIN_KEYS = frozenset({"agent", "order", "unknownMethodMessage", "migrated"})
 LEGACY_METHOD_KEYS = frozenset({"validate", "thread", "errors", "defaults"})
@@ -187,6 +189,8 @@ class ContractEntry:
 
     # Set only for methods. Ignored, with a warning, while the domain is strict.
     legacy: Optional["MethodLegacy"] = None
+    # False for an upstream lookup without a local documentation file.
+    documented: bool = True
 
 
 @dataclass
@@ -211,7 +215,7 @@ class MethodLegacy:
 
 @dataclass
 class DomainLegacy:
-    """Migration bookkeeping. Removed by `stubs --apply` once every method is typed."""
+    """Migration bookkeeping. Removed by `migrate <Domain> --apply` once every method is typed."""
 
     agent: Optional[str] = None
     order: list[str] = field(default_factory=list)
@@ -260,81 +264,94 @@ class ContractSet:
     warnings: list[str]
     # Upstream schema with deviations applied; None only in hand-built sets.
     upstream: Optional[Upstream] = None
-    # Domains marked `codegen: typed`.
-    typed_domains: set[str] = field(default_factory=set)
-    # Standard typed domains: the upstream (methods, events) Lynx implements.
-    typed_upstream: dict[str, tuple[list[str], list[str]]] = field(default_factory=dict)
+    # Defaults and per-entry overrides, independent of the supported inventory.
+    domain_modes: dict[str, str] = field(default_factory=dict)
+    explicit_domain_modes: set[str] = field(default_factory=set)
+    entry_modes: dict[tuple[str, str, str], str] = field(default_factory=dict)
+    # Explicitly selected entries; upstream selection is required for generation.
+    selections: dict[str, tuple[list[str], list[str]]] = field(default_factory=dict)
     support_file: Optional[Path] = None
-    # `validation` defaults to strict, so a typed domain that omits it (WhiteBoard)
+    # `validation` defaults to strict, so a dispatch domain that omits it (WhiteBoard)
     # keeps the current decode-before-dispatch behavior.
     validation: dict[str, str] = field(default_factory=dict)
     domain_legacy: dict[str, DomainLegacy] = field(default_factory=dict)
     domain_golden: dict[str, GoldenSpec] = field(default_factory=dict)
 
+    def entry(self, kind: str, domain: str, name: str) -> Optional[ContractEntry]:
+        """Resolve a wire contract, preferring local docs over effective upstream.
 
-def domain_validation(contracts: "ContractSet", domain: str) -> str:
-    return contracts.validation.get(domain, "strict")
+        Lookup does not select an entry for codegen or prove a source implements it.
+        """
+        docs = self.methods if kind == "method" else self.events
+        if (domain, name) in docs:
+            return docs[(domain, name)]
+        upstream = (self.upstream.commands if kind == "method" else self.upstream.events) if self.upstream else {}
+        shape = upstream.get((domain, name))
+        if shape is None:
+            return None
+        return ContractEntry(
+            kind=kind, domain=domain, name=name, source=self.support_file,
+            origin="standard", parameters=shape.parameters, returns=shape.returns,
+            documented=False,
+        )
 
+    def entries(
+        self, domain: Optional[str] = None, *, kind: Optional[str] = None,
+        modes: Optional[set[str]] = None,
+    ) -> list[ContractEntry]:
+        """Documented or explicitly selected entries, with current policy filters.
 
-@dataclass
-class TypedEntry:
-    """A method or event of a typed domain, with its effective shape."""
-
-    kind: str  # "method" or "event"
-    domain: str
-    name: str
-    parameters: Schema
-    returns: Optional[Schema]
-    # Contract source: the docs file, or cdp_support.yaml for an undocumented
-    # standard entry.
-    source: Path
+        Resolve on demand: migration plans and tests can change selections/modes.
+        """
+        result = []
+        for candidate, docs, index in (("method", self.methods, 0), ("event", self.events, 1)):
+            if kind is not None and kind != candidate:
+                continue
+            keys = set(docs) | {(owner, name) for owner, names in self.selections.items() for name in names[index]}
+            for owner, name in sorted(keys):
+                if domain is not None and domain != owner:
+                    continue
+                if modes is not None and entry_mode(self, candidate, owner, name) not in modes:
+                    continue
+                entry = self.entry(candidate, owner, name)
+                if entry is not None:
+                    result.append(entry)
+        return result
 
     @property
-    def key(self) -> str:
-        return f"{self.domain}.{self.name}"
-
-
-def typed_entries(contracts: "ContractSet", domain: str) -> list[TypedEntry]:
-    """Entries generated for a typed domain, sorted by kind and name.
-
-    Lynx-extension entries come from docs. A standard domain adds the upstream
-    entries listed in cdp_support.yaml, using the docs overlay when present and
-    otherwise the upstream shape with deviations applied.
-    """
-
-    entries: list[TypedEntry] = []
-    methods, events = contracts.typed_upstream.get(domain, ([], []))
-    for kind, docs, selected in (
-        ("method", contracts.methods, methods),
-        ("event", contracts.events, events),
-    ):
-        upstream = (
-            contracts.upstream.commands if kind == "method" else contracts.upstream.events
-        ) if contracts.upstream else {}
-        names = set(selected) | {
-            entry.name
-            for entry in docs.values()
-            if entry.domain == domain and entry.origin == "lynx-extension"
+    def generated_domains(self) -> set[str]:
+        return {domain for domain, mode in self.domain_modes.items() if mode != "contract"} | {
+            domain for (_, domain, _), mode in self.entry_modes.items() if mode != "contract"
         }
-        for name in sorted(names):
-            doc = docs.get((domain, name))
-            if doc is not None:
-                entries.append(
-                    TypedEntry(kind, domain, name, doc.parameters, doc.returns, doc.source)
-                )
-                continue
-            shape = upstream[(domain, name)]
-            entries.append(
-                TypedEntry(
-                    kind,
-                    domain,
-                    name,
-                    shape.parameters,
-                    shape.returns if kind == "method" else None,
-                    contracts.support_file,
-                )
-            )
-    return entries
+
+    @property
+    def dispatch_domains(self) -> set[str]:
+        return {domain for domain in self.generated_domains if any(
+            entry.kind == "method" and entry_mode(self, "method", domain, entry.name) == "dispatch"
+            for entry in self.entries(domain)
+        )}
+
+
+def entry_mode(contracts: ContractSet, kind: str, domain: str, name: str) -> str:
+    """Resolve one entry. A domain's dispatch policy gives events types only."""
+
+    default = contracts.domain_modes.get(domain, "contract")
+    if kind == "event" and default == "dispatch":
+        default = "types"
+    return contracts.entry_modes.get((kind, domain, name), default)
+
+
+def needs_manual_dispatch(contracts: ContractSet, domain: str) -> bool:
+    """A mixed domain must keep an explicit owner for its manual routes."""
+
+    return contracts.domain_modes.get(domain, "contract") != "dispatch" or any(
+        entry.kind == "method" and entry_mode(contracts, "method", domain, entry.name) != "dispatch"
+        for entry in contracts.entries(domain)
+    )
+
+
+def domain_validation(contracts: ContractSet, domain: str) -> str:
+    return contracts.validation.get(domain, "strict")
 
 
 class _LineDict(dict):
@@ -446,9 +463,6 @@ def load_contracts(
         support_file=support_file,
     )
     _load_support(support_file, upstream, contracts, display)
-    if not custom_docs_dir.exists():
-        return contracts
-
     for kind, section in (("method", "methods"), ("event", "events")):
         for doc_file in sorted(custom_docs_dir.glob(f"*/{section}/*.yaml")):
             domain = doc_file.parents[1].name
@@ -461,23 +475,31 @@ def load_contracts(
             target[(domain, name)] = entry
 
     documented = {entry.domain for entry in [*contracts.methods.values(), *contracts.events.values()]}
-    for domain in sorted(contracts.typed_domains - documented - set(contracts.typed_upstream)):
+    for domain in sorted(contracts.generated_domains - documented - upstream.domains - ENGINE_DOMAINS):
         contracts.errors.append(
-            f"{display(support_file)}: {domain}: typed codegen needs docs under custom_cdp_docs/{domain}/"
+            f"{display(support_file)}: {domain}: cdpc generation needs docs under custom_cdp_docs/{domain}/"
         )
-    for domain, (methods, events) in sorted(contracts.typed_upstream.items()):
-        # A documented standard entry is implemented by Lynx; leaving it out of
-        # the selection would drop it from the generated dispatch.
-        for kind, docs, selected in (
-            ("method", contracts.methods, methods),
-            ("event", contracts.events, events),
+    for domain, selection in contracts.selections.items():
+        for kind, docs, selected, known in (
+            ("method", contracts.methods, selection[0], upstream.commands),
+            ("event", contracts.events, selection[1], upstream.events),
         ):
-            for (doc_domain, name), entry in sorted(docs.items()):
-                if doc_domain == domain and entry.origin == "standard" and name not in selected:
-                    contracts.errors.append(
-                        f"{display(support_file)}: {domain}: documented standard {kind} "
-                        f"`{name}` must be listed in `{kind}s`"
-                    )
+            for name in selected:
+                if (domain, name) not in docs and (domain, name) not in known:
+                    contracts.errors.append(f"{display(support_file)}: {domain}: unknown {kind} `{name}`")
+    for kind, domain, name in contracts.entry_modes:
+        docs = contracts.methods if kind == "method" else contracts.events
+        known = upstream.commands if kind == "method" else upstream.events
+        if (domain, name) not in docs and (domain, name) not in known:
+            continue  # Already reported through selections.
+        if domain in ENGINE_DOMAINS and entry_mode(contracts, kind, domain, name) != "contract":
+            contracts.errors.append(f"{display(support_file)}: {domain}: engine-forwarded domains stay out of codegen")
+    for domain in contracts.domain_legacy:
+        if contracts.errors:
+            break
+        if any(entry.kind == "method" and entry_mode(contracts, "method", domain, entry.name) != "dispatch"
+               for entry in contracts.entries(domain)):
+            contracts.errors.append(f"{display(support_file)}: {domain}: legacy adapter requires every method to use cdpc dispatch")
     validator = _Validator(upstream, contracts)
     for entry in [*contracts.methods.values(), *contracts.events.values()]:
         reporter = _Reporter(display(entry.source), contracts.errors)
@@ -523,40 +545,35 @@ def _load_support(support_file: Path, upstream: Upstream, contracts: ContractSet
             continue
         for key in sorted(set(config) - SUPPORT_DOMAIN_KEYS):
             reporter.error(line_of(config), f"{domain}: unknown key `{key}`")
-        if "codegen" in config:
-            mode = config["codegen"]
-            if mode not in CODEGEN_MODES:
-                reporter.error(line_of(config), f"{domain}: codegen must be one of {sorted(CODEGEN_MODES)}")
-            elif domain in ENGINE_DOMAINS:
-                reporter.error(
-                    line_of(config),
-                    f"{domain}: engine-forwarded domains stay out of codegen",
-                )
-            elif domain in upstream.domains:
-                selection = _upstream_selection(domain, config, upstream, reporter)
-                if selection is not None:
-                    contracts.typed_upstream[domain] = selection
-                    contracts.typed_domains.add(domain)
-            else:
-                contracts.typed_domains.add(domain)
-        for key in ("methods", "events"):
-            if key not in config:
-                continue
-            if config.get("codegen") is None:
-                reporter.error(line_of(config), f"{domain}: `{key}` needs `codegen: typed`")
-            elif domain not in upstream.domains:
-                reporter.error(
-                    line_of(config),
-                    f"{domain}: `{key}` selects upstream entries; Lynx-extension domains "
-                    "declare entries through docs",
-                )
-        if domain in contracts.typed_domains:
+        mode = config.get("cdpc", "contract")
+        if not isinstance(mode, str) or mode not in CDPC_MODES:
+            reporter.error(line_of(config), f"{domain}: cdpc must be one of {list(CDPC_MODES)}")
+            mode = "contract"
+        contracts.domain_modes[domain] = mode
+        if "cdpc" in config:
+            contracts.explicit_domain_modes.add(domain)
+        if domain in ENGINE_DOMAINS and mode != "contract":
+            reporter.error(line_of(config), f"{domain}: engine-forwarded domains stay out of codegen")
+        if domain in upstream.domains and mode != "contract" and not any(key in config for key in ("methods", "events")):
+            reporter.error(line_of(config), f"{domain}: standard generated domains must select implemented `methods` or `events`")
+        selection = [
+            _load_selection(domain, kind, config.get(kind + "s", []), mode, contracts, reporter)
+            for kind in ("method", "event")
+        ]
+        if "methods" in config or "events" in config:
+            contracts.selections[domain] = (selection[0], selection[1])
+        has_dispatch = mode == "dispatch" or any(
+            kind == "method" and owner == domain and selected == "dispatch"
+            for (kind, owner, _), selected in contracts.entry_modes.items()
+        )
+        if has_dispatch:
             _load_domain_migration(domain, config, contracts, reporter)
-        elif any(key in config for key in ("validation", "legacy", "golden")):
-            reporter.error(
-                line_of(config),
-                f"{domain}: validation, legacy and golden need `codegen: typed`",
-            )
+        elif any(key in config for key in ("validation", "legacy")):
+            reporter.error(line_of(config), f"{domain}: validation and legacy need cdpc dispatch methods")
+        if "golden" in config:
+            parsed_golden = _parse_golden(domain, config["golden"], reporter)
+            if parsed_golden is not None:
+                contracts.domain_golden[domain] = parsed_golden
         if "deviations" in config and domain not in upstream.domains:
             reporter.error(line_of(support), f"{domain}: deviations only apply to upstream domains")
             continue
@@ -566,10 +583,50 @@ def _load_support(support_file: Path, upstream: Upstream, contracts: ContractSet
                 contracts.deviations.append(deviation)
 
 
+def _load_selection(
+    domain: str, kind: str, entries: Any, mode: str,
+    contracts: ContractSet, reporter: _Reporter,
+) -> list[str]:
+    """Parse an explicit entry selection and resolve overrides in one place."""
+
+    if isinstance(entries, list) and all(isinstance(name, str) and name for name in entries):
+        if len(set(entries)) != len(entries):
+            reporter.error(line_of(entries), f"{domain}: duplicate names in `{kind}s`")
+        return list(entries)
+    if not isinstance(entries, dict):
+        reporter.error(line_of(entries), f"{domain}: `{kind}s` must be a list of names or a mapping")
+        return []
+    names = []
+    inherited = "types" if kind == "event" and mode == "dispatch" else mode
+    allowed = CDPC_MODES[:-1] if kind == "event" else CDPC_MODES
+    for name, settings in entries.items():
+        if not isinstance(name, str) or not name:
+            reporter.error(line_of(entries), f"{domain}: `{kind}s` needs non-empty entry names")
+            continue
+        names.append(name)
+        if not isinstance(settings, dict):
+            reporter.error(line_of(entries), f"{domain}.{name}: settings must be a mapping")
+            continue
+        for unknown in sorted(set(settings) - ENTRY_SUPPORT_KEYS):
+            reporter.error(line_of(settings), f"{domain}.{name}: unknown key `{unknown}`")
+        override = settings.get("cdpc", inherited)
+        if not isinstance(override, str) or override not in allowed:
+            reporter.error(line_of(settings), f"{domain}.{name}: cdpc must be one of {list(allowed)}")
+            continue
+        reason = settings.get("reason")
+        valid_reason = isinstance(reason, str) and bool(reason.strip())
+        if reason is not None and not valid_reason:
+            reporter.error(line_of(settings), f"{domain}.{name}: reason must be a non-empty string")
+        elif CDPC_MODES.index(override) < CDPC_MODES.index(inherited) and not valid_reason:
+            reporter.error(line_of(settings), f"{domain}.{name}: lowering cdpc needs a non-empty `reason`")
+        contracts.entry_modes[(kind, domain, name)] = override
+    return names
+
+
 def _load_domain_migration(
     domain: str, config: dict, contracts: ContractSet, reporter: _Reporter
 ) -> None:
-    """`validation`, `legacy` and `golden` on a typed domain. Default validation is strict."""
+    """Compatibility settings for generated dispatch. Default validation is strict."""
 
     mode = config.get("validation", "strict")
     if mode not in VALIDATION_MODES:
@@ -583,10 +640,6 @@ def _load_domain_migration(
         parsed = _parse_domain_legacy(domain, config["legacy"], reporter)
         if parsed is not None:
             contracts.domain_legacy[domain] = parsed
-    if "golden" in config:
-        parsed_golden = _parse_golden(domain, config["golden"], reporter)
-        if parsed_golden is not None:
-            contracts.domain_golden[domain] = parsed_golden
 
 
 def _parse_domain_legacy(domain: str, value: Any, reporter: _Reporter) -> Optional[DomainLegacy]:
@@ -754,7 +807,7 @@ def _check_legacy_consistency(contracts: ContractSet, display) -> None:
         if domain_validation(contracts, domain) == "strict":
             contracts.warnings.append(
                 f"{display(entry.source)}: legacy block is ignored while validation is strict; "
-                "`stubs --apply` removes it"
+                "`migrate <Domain> --apply` removes it"
             )
             continue
         for field_name in entry.legacy.defaults:
@@ -819,8 +872,7 @@ def _scan_todos(support_file: Path, docs_dir: Path, errors: list[str], display) 
     paths = []
     if support_file.exists():
         paths.append(support_file)
-    if docs_dir.exists():
-        paths.extend(sorted(docs_dir.glob("*/*/*.yaml")))
+    paths.extend(sorted(docs_dir.glob("*/*/*.yaml")))
     for path in paths:
         try:
             lines = path.read_text(encoding="utf-8").splitlines()
@@ -830,30 +882,6 @@ def _scan_todos(support_file: Path, docs_dir: Path, errors: list[str], display) 
         for number, line in enumerate(lines, 1):
             if TODO_TOKEN in line:
                 errors.append(f"{shown}:{number}: TODO(cdpc) must be resolved")
-
-
-def _upstream_selection(domain: str, config: dict, upstream: Upstream, reporter: _Reporter):
-    """Validate the upstream methods and events a standard typed domain lists."""
-
-    if "methods" not in config:
-        reporter.error(
-            line_of(config),
-            f"{domain}: standard typed domains must list implemented upstream `methods`",
-        )
-        return None
-    selection = []
-    for key, known in (("methods", upstream.commands), ("events", upstream.events)):
-        names = config.get(key) or []
-        if not isinstance(names, list) or not all(isinstance(name, str) for name in names):
-            reporter.error(line_of(config), f"{domain}: `{key}` must be a list of names")
-            return None
-        for name in names:
-            if (domain, name) not in known:
-                reporter.error(line_of(config), f"{domain}: unknown upstream {key[:-1]} `{name}`")
-        if len(set(names)) != len(names):
-            reporter.error(line_of(config), f"{domain}: duplicate names in `{key}`")
-        selection.append(list(names))
-    return selection[0], selection[1]
 
 
 def _apply_deviation(domain: str, item: Any, upstream: Upstream, reporter: _Reporter):
@@ -1307,8 +1335,10 @@ class _Validator:
 
     def event_schema(self, name: str) -> Optional[Schema]:
         domain, event = name.split(".", 1)
-        if self.contracts is not None and (domain, event) in self.contracts.events:
-            return self.contracts.events[(domain, event)].parameters
+        if self.contracts is not None:
+            entry = self.contracts.entry("event", domain, event)
+            if entry is not None:
+                return entry.parameters
         if self.upstream is not None and (domain, event) in self.upstream.events:
             return self.upstream.events[(domain, event)].parameters
         return None
@@ -1572,17 +1602,11 @@ def export_runtime_schema(
     types: dict[str, dict] = {}
     commands: dict[str, dict] = {}
     for key in sorted(set(methods)):
-        entry = contracts.methods.get(key)
-        if entry is not None:
-            params, result = entry.parameters, entry.returns
-            params_optional = entry.params_optional
-        elif upstream is not None and key in upstream.commands:
-            params, result = upstream.commands[key].parameters, upstream.commands[key].returns
-            params_optional = False
-        else:
+        entry = contracts.entry("method", *key)
+        if entry is None:
             continue
-        command = {"p": visit(params), "r": visit(result)}
-        if params_optional:
+        command = {"p": visit(entry.parameters), "r": visit(entry.returns)}
+        if entry.params_optional:
             command["po"] = 1
         commands[".".join(key)] = command
 

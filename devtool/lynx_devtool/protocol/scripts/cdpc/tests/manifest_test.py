@@ -14,6 +14,36 @@ from cdpc.tests.support import TempRepoTestCase
 
 
 class ManifestTest(TempRepoTestCase):
+    def test_load_manifest_preserves_yaml_strings_and_primjs_history(self):
+        path = self.paths.source_root / "manifest.yaml"
+        path.write_text(
+            "domains:\n"
+            "- name: Runtime\n"
+            "  methods:\n"
+            "  - {name: evaluate, since: 3.10, source: primjs/protocols.cc}\n"
+            "  events:\n"
+            "  - {name: on, since: '4.0'}\n",
+            encoding="utf-8",
+        )
+        result = manifest.load_existing_manifest(path)
+        self.assertEqual(result.method_since, {("Runtime", "evaluate"): "3.10"})
+        self.assertEqual(result.event_since, {("Runtime", "on"): "4.0"})
+        self.assertEqual(
+            result.method_source, {("Runtime", "evaluate"): "primjs/protocols.cc"}
+        )
+
+    def test_missing_manifest_has_no_history(self):
+        result = manifest.load_existing_manifest(self.paths.source_root / "missing.yaml")
+        self.assertEqual(result, manifest.ExistingManifest(set(), set(), set(), {}, {}, {}))
+
+    def test_malformed_manifest_rejects_instead_of_dropping_history(self):
+        path = self.paths.source_root / "manifest.yaml"
+        for text in ("domains: [", "domains: [{methods: []}]", "domains: wrong"):
+            with self.subTest(text=text):
+                path.write_text(text, encoding="utf-8")
+                with self.assertRaisesRegex(CdpcError, "invalid generated manifest"):
+                    manifest.load_existing_manifest(path)
+
     def test_load_existing_manifest_since(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             manifest_file = Path(temp_dir) / "cdp_manifest.generated.yaml"

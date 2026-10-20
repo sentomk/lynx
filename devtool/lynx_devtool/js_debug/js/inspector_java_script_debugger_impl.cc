@@ -11,7 +11,6 @@
 #include "core/renderer/utils/lynx_env.h"
 #include "devtool/lynx_devtool/config/devtool_config.h"
 #include "devtool/lynx_devtool/js_debug/inspector_const_extend.h"
-#include "devtool/lynx_devtool/shared_data/white_board_inspector_runtime_delegate.h"
 
 namespace lynx {
 namespace devtool {
@@ -192,10 +191,48 @@ void InspectorJavaScriptDebuggerImpl::RunOnTargetThread(base::closure&& closure,
   }
 }
 
-WhiteBoardInspectorDelegate*
-InspectorJavaScriptDebuggerImpl::FindWhiteBoardInspectorDelegate() const {
-  return white_board_inspector_delegate_.get();
+#define HANDLE_WHITE_BOARD_METHOD(method, cur_func_name)                      \
+  do {                                                                        \
+    if (white_board_inspector_delegate_ == nullptr) {                         \
+      responder->SendError(CDPErrorCode::ServerError,                         \
+                           "InspectorJavaScriptDebuggerImpl::" #cur_func_name \
+                           ", white_board_inspector_delegate_ is null");      \
+      return;                                                                 \
+    }                                                                         \
+    white_board_inspector_delegate_->method(responder, params);               \
+  } while (0)
+
+void InspectorJavaScriptDebuggerImpl::WhiteBoardEnable(
+    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
+  HANDLE_WHITE_BOARD_METHOD(Enable, WhiteBoardEnable);
 }
+
+void InspectorJavaScriptDebuggerImpl::WhiteBoardDisable(
+    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
+  HANDLE_WHITE_BOARD_METHOD(Disable, WhiteBoardDisable);
+}
+
+void InspectorJavaScriptDebuggerImpl::WhiteBoardSetSharedData(
+    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
+  HANDLE_WHITE_BOARD_METHOD(SetSharedData, WhiteBoardSetSharedData);
+}
+
+void InspectorJavaScriptDebuggerImpl::WhiteBoardGetSharedData(
+    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
+  HANDLE_WHITE_BOARD_METHOD(GetSharedData, WhiteBoardGetSharedData);
+}
+
+void InspectorJavaScriptDebuggerImpl::WhiteBoardRemoveSharedData(
+    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
+  HANDLE_WHITE_BOARD_METHOD(RemoveSharedData, WhiteBoardRemoveSharedData);
+}
+
+void InspectorJavaScriptDebuggerImpl::WhiteBoardClear(
+    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
+  HANDLE_WHITE_BOARD_METHOD(Clear, WhiteBoardClear);
+}
+
+#undef HANDLE_WHITE_BOARD_METHOD
 
 }  // namespace devtool
 }  // namespace lynx

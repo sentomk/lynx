@@ -12,22 +12,6 @@ notes:
   - The value must be a JSON object; arrays, scalar values, and null are rejected.
   - The update uses TemplateAssembler::UpdateGlobalProps so the TASM cache, MTS and BTS projections, and rendering follow the normal GlobalProps pipeline.
   - Returns a CDP error with code -32000 when the TASM target is unavailable.
-legacy:
-  validate: handler
-  thread: tasm
-  errors:
-    - field: globalProps
-      reason: type
-      code: InvalidParams
-      message: globalProps must be an object
-    - field: globalProps
-      reason: missing
-      code: InvalidParams
-      message: globalProps must be an object
-    - field: ""
-      reason: type
-      code: InvalidParams
-      message: globalProps must be an object
 examples:
   - title: Replace GlobalProps
     request:

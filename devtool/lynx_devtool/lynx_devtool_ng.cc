@@ -215,14 +215,10 @@ void LynxDevToolNG::RegisterInstanceDomainAgents() {
                 std::make_unique<InspectorAnimationAgent>(devtool_mediator_));
   RegisterAgent("UITree",
                 std::make_unique<InspectorUITreeAgent>(devtool_mediator_));
-  RegisterAgent(
-      "GlobalProps",
-      protocol::global_props::CreateAgent(
-          std::make_unique<InspectorGlobalPropsAgent>(devtool_mediator_)));
-  RegisterAgent(
-      "WhiteBoard",
-      protocol::white_board::CreateAgent(
-          std::make_unique<InspectorWhiteBoardAgent>(devtool_mediator_)));
+  RegisterAgent("GlobalProps",
+                std::make_unique<InspectorGlobalPropsAgent>(devtool_mediator_));
+  RegisterAgent("WhiteBoard",
+                std::make_unique<InspectorWhiteBoardAgent>(devtool_mediator_));
 }
 
 void LynxDevToolNG::RegisterInstanceDomainAgents(
@@ -296,18 +292,14 @@ void LynxDevToolNG::RegisterInstanceDomainAgents(
     RegisterAgent("LayerTree", std::make_unique<InspectorLayerTreeAgentNG>(
                                    devtool_mediator_));
   } else if (!domain_key.compare(domain_key_prefix + "globalprops")) {
-    RegisterAgent(
-        "GlobalProps",
-        protocol::global_props::CreateAgent(
-            std::make_unique<InspectorGlobalPropsAgent>(devtool_mediator_)));
+    RegisterAgent("GlobalProps", std::make_unique<InspectorGlobalPropsAgent>(
+                                     devtool_mediator_));
   } else if (!domain_key.compare(domain_key_prefix + "animation")) {
     RegisterAgent("Animation",
                   std::make_unique<InspectorAnimationAgent>(devtool_mediator_));
   } else if (!domain_key.compare(domain_key_prefix + "whiteboard")) {
-    RegisterAgent(
-        "WhiteBoard",
-        protocol::white_board::CreateAgent(
-            std::make_unique<InspectorWhiteBoardAgent>(devtool_mediator_)));
+    RegisterAgent("WhiteBoard", std::make_unique<InspectorWhiteBoardAgent>(
+                                    devtool_mediator_));
   }
 }
 

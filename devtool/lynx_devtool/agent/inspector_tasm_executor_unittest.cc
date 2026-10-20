@@ -610,24 +610,43 @@ TEST_F(InspectorTasmExecutorTest, OverlayRejectsNodeMarkedForErasure) {
 }
 
 TEST_F(InspectorTasmExecutorTest, GlobalPropsEnableDisableCase) {
-  element_executor_->SetGlobalPropsEnabled(true);
+  auto responder = std::make_shared<devtool::CDPResponder>(message_sender_, 1);
+  element_executor_->GlobalPropsEnable(responder, Json::Value());
+  responder.reset();
   EXPECT_TRUE(element_executor_->IsGlobalPropsEnabled());
-  element_executor_->SetGlobalPropsEnabled(false);
+  Json::Value response = ReceivedMessage();
+  EXPECT_EQ(response["id"], 1);
+  EXPECT_TRUE(response["result"].isObject());
+
+  responder = std::make_shared<devtool::CDPResponder>(message_sender_, 2);
+  element_executor_->GlobalPropsDisable(responder, Json::Value());
+  responder.reset();
   EXPECT_FALSE(element_executor_->IsGlobalPropsEnabled());
 }
 
 TEST_F(InspectorTasmExecutorTest, GlobalPropsGetWithoutTasmReturnsEmptyObject) {
-  Json::Value props = element_executor_->CopyGlobalProps();
-  EXPECT_TRUE(props.isObject());
-  EXPECT_TRUE(props.empty());
-  EXPECT_EQ(element_executor_->GetLastGlobalPropsTimestamp(), 0u);
+  auto responder = std::make_shared<devtool::CDPResponder>(message_sender_, 3);
+  element_executor_->GlobalPropsGet(responder, Json::Value());
+  responder.reset();
+
+  Json::Value response = ReceivedMessage();
+  EXPECT_EQ(response["id"], 3);
+  EXPECT_TRUE(response["result"]["globalProps"].isObject());
+  EXPECT_TRUE(response["result"]["globalProps"].empty());
+  EXPECT_EQ(response["result"]["timestamp"].asUInt64(), 0u);
 }
 
 TEST_F(InspectorTasmExecutorTest, GlobalPropsReplaceRejectsInvalidParams) {
-  Json::Value global_props(Json::ValueType::arrayValue);
-  std::string error;
-  EXPECT_FALSE(element_executor_->ReplaceGlobalProps(global_props, &error));
-  EXPECT_EQ(error, "globalProps must be an object");
+  Json::Value params(Json::ValueType::objectValue);
+  params["globalProps"] = Json::Value(Json::ValueType::arrayValue);
+  auto responder = std::make_shared<devtool::CDPResponder>(message_sender_, 4);
+  element_executor_->GlobalPropsReplace(responder, params);
+  responder.reset();
+
+  Json::Value response = ReceivedMessage();
+  EXPECT_EQ(response["error"]["code"],
+            static_cast<int>(devtool::CDPErrorCode::InvalidParams));
+  EXPECT_EQ(response["error"]["message"], "globalProps must be an object");
 }
 
 TEST_F(InspectorTasmExecutorTest,

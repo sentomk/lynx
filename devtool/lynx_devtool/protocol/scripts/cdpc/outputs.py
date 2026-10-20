@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from cdpc import codegen, contract, golden, inventory, manifest, scan, schema_cpp, style
+from cdpc import contract, manifest, scan, style
 from cdpc.repo import CdpcError, EnvError, Paths, license_header, relative_path
 from cdpc.scan import LocalMethod
 
@@ -41,7 +41,7 @@ class Generated:
     outputs: dict[Path, str]
     local_methods: list[LocalMethod]
     upstream_methods: dict[str, set[str]]
-    # Legacy declarations left in typed domains; see `generate`.
+    # Legacy declarations left in dispatch domains; see `generate`.
     leftovers: list[LocalMethod]
 
 
@@ -50,16 +50,14 @@ def generate(
 ) -> Generated:
     """Build every generated file from valid `contracts` and the sources."""
 
-    upstream_methods = manifest.load_upstream_methods(paths.upstream_schema)
+    upstream = contracts.upstream or contract.load_upstream(paths.upstream_schema)
+    upstream_methods = {domain: set() for domain in upstream.domains}
+    for domain, name in upstream.commands:
+        upstream_methods[domain].add(name)
     existing_manifest = manifest.load_existing_manifest(paths.manifest)
     local_methods = scan.scan_local_methods(
         paths, existing_manifest.method_source, require_primjs=require_primjs
     )
-    # Legacy declarations left in a typed domain fail the command, but only
-    # after `write` has generated the code, so a migration in progress gets
-    # the new types and editor completion before the old code is removed.
-    local_methods, leftovers = inventory.split_typed_leftovers(local_methods, contracts)
-    local_methods = inventory.add_typed_methods(paths, local_methods, contracts)
     scopes = scan.scan_domain_scopes(paths.registration_source)
     current_lynx_version = scan.scan_current_lynx_version(paths.lynx_config_source)
     manifest_text = manifest.build_manifest(
@@ -72,8 +70,7 @@ def generate(
         contracts,
     )
     outputs = {paths.manifest: manifest_text}
-    outputs.update(build_generated_cpp(paths, contracts, local_methods, set(scopes)))
-    return Generated(outputs, local_methods, upstream_methods, leftovers)
+    return Generated(outputs, local_methods, upstream_methods, [])
 
 
 @dataclass
@@ -105,16 +102,29 @@ class Report:
         self.errors.append(Finding(category, summary, detail or summary))
 
     def finish(self) -> int:
+        if self.updated:
+            print(style.bold(f"Generated files ({len(self.updated)} updated):"))
         for path in self.updated:
-            print(f"{style.paint('+ Updated', 'green')} {path}")
-        for finding in self.warnings:
-            _emit(style.warning, finding.detail)
-        for finding in self.errors:
-            _emit(style.error, finding.detail)
+            print(f"  {style.paint('+ Updated', 'green')} {style.paint(path, 'blue')}")
+        self.print_findings()
         line = conclusion_line(self.command, len(self.updated), self.errors, self.warnings)
         color = "green" if not self.errors else "red"
+        if self.updated or self.warnings or self.errors:
+            print()
         print(style.paint(line, "bold", color))
         return 1 if self.errors else 0
+
+    def print_findings(self) -> None:
+        for title, findings, formatter in (("Warnings", self.warnings, style.warning),
+                                            ("Errors", self.errors, style.error)):
+            if not findings:
+                continue
+            if self.updated or len(findings) > 1:
+                print("\n" + style.bold(f"{title} ({len(findings)}):"))
+            for index, finding in enumerate(findings):
+                if index:
+                    print()
+                _emit(formatter, finding.detail)
 
 
 def conclusion_line(
@@ -129,8 +139,6 @@ def conclusion_line(
         parts.append(f"updated {updated} {noun}")
     elif not errors:
         parts.append("up to date")
-    if updated and errors:
-        parts.append("files written; migration incomplete")
     if errors:
         noun = "error" if len(errors) == 1 else "errors"
         parts.append(f"{len(errors)} {noun} ({_summaries(errors)})")
@@ -143,9 +151,15 @@ def conclusion_line(
 def _summaries(findings: list[Finding]) -> str:
     seen: list[str] = []
     for finding in findings:
-        if finding.summary not in seen:
-            seen.append(finding.summary)
-    shown = seen[:4]
+        # Paths and repair commands belong in the diagnostic, not the conclusion.
+        summary = finding.summary if len(finding.summary) <= 64 else finding.category
+        if summary not in seen:
+            seen.append(summary)
+    shown = []
+    for summary in seen[:4]:
+        if shown and len(", ".join([*shown, summary])) > 80:
+            break
+        shown.append(summary)
     text = ", ".join(shown)
     extra = len(seen) - len(shown)
     if extra:
@@ -156,8 +170,8 @@ def _summaries(findings: list[Finding]) -> str:
 def _emit(prefix, text: str) -> None:
     lines = text.splitlines() or [""]
     print(prefix(lines[0]))
-    for line in lines[1:]:
-        print(line)
+    if len(lines) > 1:
+        print(style.format_blocks("\n".join(lines[1:])))
 
 
 def _contract_summary(error: str) -> str:
@@ -183,195 +197,30 @@ def _absorb_contracts(report: Report, contracts: contract.ContractSet) -> bool:
     return bool(contracts.errors)
 
 
-def write(paths: Paths, contracts: contract.ContractSet, require_primjs: bool) -> int:
-    """`cdpc write`: rewrite generated files, then print one conclusion line."""
-
+def write(paths, contracts, require_primjs, dry_run=False):
     report = Report("write")
     if _absorb_contracts(report, contracts):
         return report.finish()
     generated = generate(paths, contracts, require_primjs)
-    for path, text in generated.outputs.items():
-        if write_if_changed(path, text):
+    for path, expected in generated.outputs.items():
+        actual = path.read_text() if path.exists() else ""
+        if actual == expected:
+            continue
+        if dry_run:
+            print("".join(difflib.unified_diff(actual.splitlines(True), expected.splitlines(True), fromfile=str(path), tofile=str(path))), end="")
+        else:
+            path.write_text(expected, encoding="utf-8")
             report.updated.append(relative_path(paths, path))
-    missing_docs = find_missing_custom_docs(
-        paths,
-        generated.local_methods,
-        generated.upstream_methods,
-        check_existing_manifest=False,
-    )
-    if missing_docs:
-        detail = "missing custom CDP docs:\n" + "\n".join(f"  - {doc}" for doc in missing_docs)
-        report.warn("advisory", f"missing docs ({len(missing_docs)})", detail)
-    for hint in missing_override_hints(paths, contracts):
-        report.warn("advisory", hint.split("\n", 1)[0], hint)
-    _record_leftovers(report, contracts, generated.leftovers)
     return report.finish()
 
 
-def check(
-    paths: Paths,
-    contracts: contract.ContractSet,
-    require_primjs: bool,
-    golden_bin: Optional[Path] = None,
-) -> int:
-    """`cdpc check`: fail when docs or generated files are wrong, then one conclusion."""
-
+def check(paths, contracts, require_primjs):
     report = Report("check")
     if _absorb_contracts(report, contracts):
         return report.finish()
     generated = generate(paths, contracts, require_primjs)
-    collect_output_errors(
-        report,
-        paths,
-        generated.outputs,
-        generated.local_methods,
-        generated.upstream_methods,
-    )
-    _record_leftovers(report, contracts, generated.leftovers)
-    golden_errors, golden_warnings = golden.check_golden(paths, contracts)
-    for warning in golden_warnings:
-        report.warn("golden", warning.split("\n", 1)[0], warning)
-    for error in golden_errors:
-        report.error("golden", error.split("\n", 1)[0], error)
-    for caller in scan.scan_removed_symbols(paths):
-        report.error("callers", caller, caller)
-    executable = golden_bin
-    if executable is None and os.environ.get("CDPC_GOLDEN_BIN"):
-        executable = Path(os.environ["CDPC_GOLDEN_BIN"])
-    if executable is not None:
-        # A missing binary is an environment error (exit 3). A failing replay
-        # is a golden error (exit 1).
-        try:
-            golden.run_golden_bin(executable)
-        except golden.GoldenError as exc:
-            report.error("golden", "golden replay failed", str(exc))
+    collect_output_errors(report, paths, generated.outputs, generated.local_methods, generated.upstream_methods)
     return report.finish()
-
-
-def _record_leftovers(
-    report: Report, contracts: contract.ContractSet, leftovers: list[LocalMethod]
-) -> None:
-    """Errors for leftovers, except the old agent file during a partial migration."""
-
-    errors, warnings = inventory.partition_leftovers(leftovers, contracts)
-    for item in warnings:
-        detail = (
-            f"{item.domain}.{item.method} in {item.source} is still forwarded by the "
-            "legacy adapter; it becomes an error once legacy.migrated covers every method"
-        )
-        report.warn("legacy", f"legacy leftover {item.domain}.{item.method}", detail)
-    if errors:
-        report.error(
-            "legacy",
-            _leftover_summary(errors),
-            inventory.typed_leftovers_message(errors),
-        )
-
-
-def build_generated_cpp(
-    paths: Paths,
-    contracts: contract.ContractSet,
-    local_methods: list[LocalMethod],
-    domains: set[str],
-    format_cpp: bool = True,
-) -> dict[Path, str]:
-    """Return the generated protocol types and contract schema C++ files."""
-
-    try:
-        protocol_header, protocol_source = codegen.generate(
-            contracts,
-            relative_path(paths, paths.generated_header),
-            GENERATED_CPP_NOTICE,
-        )
-    except codegen.CodegenError as exc:
-        raise CdpcError(f"typed codegen failed: {exc}") from exc
-    schema_header, schema_source = schema_cpp.build(
-        paths, contracts, local_methods, domains, GENERATED_CPP_NOTICE
-    )
-    outputs = {
-        paths.generated_header: protocol_header,
-        paths.generated_source: protocol_source,
-        paths.schema_header: schema_header,
-        paths.schema_source: schema_source,
-    }
-    if paths.fixture_dir.exists():
-        outputs.update(build_fixture_cpp(paths))
-    if format_cpp:
-        outputs = {
-            path: clang_format(paths, path, text) for path, text in outputs.items()
-        }
-    return outputs
-
-
-def build_fixture_cpp(paths: Paths) -> dict[Path, str]:
-    """Generate the test-only fixture domain that exercises every codegen shape.
-
-    The fixture has its own upstream schema, support file and docs under
-    `testdata/fixture/`, and generates into the `protocol_fixture` namespace so
-    unit tests can compile it next to the real protocol.
-    """
-
-    fixture = paths.fixture_dir
-    try:
-        upstream = contract.load_upstream(fixture / "protocol.json")
-    except contract.ContractError as exc:
-        raise CdpcError(str(exc)) from exc
-    contracts = contract.load_contracts(
-        fixture / "custom_cdp_docs",
-        fixture / "cdp_support.yaml",
-        upstream,
-        lambda path: relative_path(paths, path),
-    )
-    if contracts.errors:
-        raise CdpcError(
-            "codegen fixture contracts are invalid:\n  " + "\n  ".join(contracts.errors)
-        )
-    header = fixture / "fixture_protocol.generated.h"
-    try:
-        header_text, source_text = codegen.generate(
-            contracts,
-            relative_path(paths, header),
-            GENERATED_CPP_NOTICE,
-            root_namespace="protocol_fixture",
-        )
-    except codegen.CodegenError as exc:
-        raise CdpcError(f"codegen fixture failed: {exc}") from exc
-    return {header: header_text, fixture / "fixture_protocol.generated.cc": source_text}
-
-
-def clang_format(paths: Paths, target: Path, text: str) -> str:
-    tool = paths.clang_format
-    if not tool.exists():
-        raise EnvError(
-            f"missing {relative_path(paths, tool)}; run `tools/hab sync .` "
-            "to format generated C++"
-        )
-    version = subprocess.run(
-        [str(tool), "--version"], capture_output=True, text=True, check=False
-    ).stdout
-    if CLANG_FORMAT_VERSION not in version:
-        raise EnvError(
-            f"unexpected clang-format: {version.strip()!r}; expected "
-            f"{CLANG_FORMAT_VERSION}x from `tools/hab sync .`"
-        )
-    result = subprocess.run(
-        [str(tool), "--style=file", f"--assume-filename={target}"],
-        input=text,
-        capture_output=True,
-        text=True,
-        cwd=paths.source_root,
-        check=False,
-    )
-    if result.returncode != 0:
-        raise CdpcError(f"clang-format failed for {target}: {result.stderr}")
-    return result.stdout
-
-
-def write_if_changed(path: Path, text: str) -> bool:
-    if path.exists() and path.read_text(encoding="utf-8") == text:
-        return False
-    path.write_text(text, encoding="utf-8")
-    return True
 
 
 def collect_output_errors(
@@ -404,12 +253,12 @@ def collect_output_errors(
                 lineterm="",
             )
         )
-        lines = [_diff_line(line) for line in diff[:MAX_DIFF_LINES]]
+        lines = diff[:MAX_DIFF_LINES]
         if len(diff) > MAX_DIFF_LINES:
             lines.append(f"... {len(diff) - MAX_DIFF_LINES} more diff lines")
         detail = (
             f"DevTool CDP generated file is stale: {relative}\n"
-            + "\n".join(lines)
+            + style.fence("\n".join(lines), "diff")
             + "\nRun:\n  tools/cdpc write"
         )
         report.error("stale", f"stale generated file {relative}", detail)
@@ -465,55 +314,4 @@ def find_docs_without_methods(
         if (domain, method) not in known_methods:
             stale_docs.append(relative_path(paths, doc_file))
     return stale_docs
-
-
-def missing_override_hints(paths: Paths, contracts: contract.ContractSet) -> list[str]:
-    """Hints when a Backend implementation lags its docs. `write` does not edit it."""
-
-    domains = {}
-    for domain in sorted(contracts.typed_domains):
-        try:
-            domains[domain] = codegen.backend_methods(contracts, domain)
-        except codegen.CodegenError:
-            continue
-    found = scan.find_backend_classes(
-        [paths.source_root / "devtool"],
-        [f"protocol::{namespace}" for namespace, _ in domains.values()],
-    )
-    hints = []
-    for domain, (namespace, methods) in domains.items():
-        classes = found[f"protocol::{namespace}"]
-        if len(classes) != 1:
-            what = "no class implements" if not classes else f"{len(classes)} classes implement"
-            hints.append(
-                f"{domain} Backend: {what} protocol::{namespace}::Backend under devtool/; "
-                "stubs --apply needs exactly one"
-            )
-            continue
-        header, class_name = classes[0]
-        try:
-            missing = scan.missing_methods(header, class_name, methods)
-        except CdpcError:
-            continue
-        if missing:
-            hints.append(
-                f"{domain} Backend: {len(missing)} method(s) not declared in "
-                f"{class_name} ({relative_path(paths, header)}): "
-                + ", ".join(method.key for method in missing)
-                + f"\nrun: tools/cdpc stubs {domain} --apply"
-            )
-    return hints
-
-
-def _diff_line(line: str) -> str:
-    if line.startswith(("+++", "---")):
-        return style.bold(line)
-    if line.startswith("@@"):
-        return style.paint(line, "cyan")
-    if line.startswith("+"):
-        return style.paint(line, "green")
-    if line.startswith("-"):
-        return style.paint(line, "red")
-    return line
-
 

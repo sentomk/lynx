@@ -7,7 +7,8 @@
 
 #include <memory>
 
-#include "devtool/lynx_devtool/protocol/cdp_protocol.generated.h"
+#include "devtool/base_devtool/native/public/cdp_responder.h"
+#include "devtool/lynx_devtool/agent/agent_defines.h"
 #include "devtool/lynx_devtool/shared_data/white_board_inspector_impl.h"
 #include "third_party/jsoncpp/include/json/json.h"
 
@@ -29,20 +30,15 @@ class WhiteBoardInspectorDelegate {
 
   // Handles a WhiteBoard command and produces its response through |responder|.
   // These are the terminal handlers shared by the TASM-executor and
-  // JS-debugger paths, so both paths emit identical envelopes. Params arrive
-  // decoded by the generated WhiteBoard Agent. Disabled commands report
-  // ServerError instead of dropping the request silently.
-  void Enable(const protocol::white_board::EnableResponder& responder);
-  void Disable(const protocol::white_board::DisableResponder& responder);
-  void SetSharedData(
-      const protocol::white_board::SetSharedDataResponder& responder,
-      const protocol::white_board::SetSharedDataParams& params);
-  void GetSharedData(
-      const protocol::white_board::GetSharedDataResponder& responder);
-  void RemoveSharedData(
-      const protocol::white_board::RemoveSharedDataResponder& responder,
-      const protocol::white_board::RemoveSharedDataParams& params);
-  void Clear(const protocol::white_board::ClearResponder& responder);
+  // JS-debugger paths, so routing the response through the responder here is
+  // what guarantees both paths emit identical envelopes. Disabled commands
+  // report ServerError instead of dropping the request silently.
+  DECLARE_DEVTOOL_CDP_METHOD(Enable);
+  DECLARE_DEVTOOL_CDP_METHOD(Disable);
+  DECLARE_DEVTOOL_CDP_METHOD(SetSharedData);
+  DECLARE_DEVTOOL_CDP_METHOD(GetSharedData);
+  DECLARE_DEVTOOL_CDP_METHOD(RemoveSharedData);
+  DECLARE_DEVTOOL_CDP_METHOD(Clear);
 
   void OnSharedDataAdded(const std::string& key, const std::string& value);
   void OnSharedDataUpdated(const std::string& key, const std::string& value);
@@ -52,6 +48,9 @@ class WhiteBoardInspectorDelegate {
   virtual void SendEvent(const Json::Value& msg) = 0;
 
  protected:
+  Json::Value GenEventMessage(const std::string& method,
+                              const Json::Value& params);
+
   bool enabled_{false};
   int view_id_;
   std::weak_ptr<WhiteBoardInspectorImpl> inspector_;

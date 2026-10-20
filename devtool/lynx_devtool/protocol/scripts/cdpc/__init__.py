@@ -9,12 +9,8 @@ modules never import each other; tests/layering_test.py enforces both.
 """
 
 LAYERS = {
-    # Shared by everything: repository paths and CdpcError, terminal output,
-    # and the contract model built from custom_cdp_docs.
     "base": ["repo", "style", "contract"],
-    # Data derived from the contract and the sources.
-    "data": ["codegen", "scan", "manifest", "schema_cpp", "changes", "inventory", "golden"],
-    # One module per command group.
-    "commands": ["outputs", "query", "diff", "stubs", "upstream"],
+    "data": ["scan", "manifest", "inventory", "outputs"],
+    "commands": ["upstream"],
     "entry": ["__main__"],
 }

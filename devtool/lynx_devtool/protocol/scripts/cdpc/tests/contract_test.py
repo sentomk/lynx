@@ -268,20 +268,20 @@ class FieldShapeTest(ContractTestBase):
 
 class LegacySchemaTest(ContractTestBase):
     def test_validation_defaults_to_strict_and_rejects_unknown_modes(self):
-        self.support.write_text("Board:\n  codegen: typed\n", encoding="utf-8")
+        self.support.write_text("Board:\n  cdpc: dispatch\n", encoding="utf-8")
         self.write_doc("Board/methods/get.yaml", "summary: Get.\n")
         contracts = self.load()
         self.assertEqual(contracts.errors, [])
         self.assertEqual(contract.domain_validation(contracts, "Board"), "strict")
 
         self.support.write_text(
-            "Board:\n  codegen: typed\n  validation: loose\n", encoding="utf-8"
+            "Board:\n  cdpc: dispatch\n  validation: loose\n", encoding="utf-8"
         )
         self.assertErrors(self.load(), "validation must be one of ['legacy', 'strict']")
 
     def test_todo_marker_fails_the_contract(self):
         self.support.write_text(
-            "Board:\n  codegen: typed\n  validation: legacy\n"
+            "Board:\n  cdpc: dispatch\n  validation: legacy\n"
             "  # TODO(cdpc): confirm registration order\n"
             "  legacy:\n    order: [get]\n",
             encoding="utf-8",
@@ -291,7 +291,7 @@ class LegacySchemaTest(ContractTestBase):
 
     def test_legacy_order_must_name_each_method_once(self):
         self.support.write_text(
-            "Board:\n  codegen: typed\n  validation: legacy\n"
+            "Board:\n  cdpc: dispatch\n  validation: legacy\n"
             "  legacy:\n    order: [get]\n",
             encoding="utf-8",
         )
@@ -300,7 +300,7 @@ class LegacySchemaTest(ContractTestBase):
         self.assertErrors(self.load(), "legacy.order must list each method once")
 
     def test_strict_domain_warns_about_a_leftover_legacy_block(self):
-        self.support.write_text("Board:\n  codegen: typed\n", encoding="utf-8")
+        self.support.write_text("Board:\n  cdpc: dispatch\n", encoding="utf-8")
         self.write_doc(
             "Board/methods/get.yaml",
             "summary: Get.\nlegacy:\n  validate: handler\n  thread: none\n",
@@ -637,6 +637,56 @@ class RuntimeExportTest(ContractTestBase):
         self.assertEqual(
             schema["events"]["Sample.changed"]["p"]["p"]["key"], {"s": {"k": ["string"]}}
         )
+
+
+class EntryResolutionTest(ContractTestBase):
+    def test_lookup_does_not_select_or_claim_local_documentation(self):
+        contracts = self.load()
+        entry = contracts.entry("method", "DOM", "getDocument")
+        self.assertFalse(entry.documented)
+        self.assertEqual(entry.source, self.support)
+        self.assertEqual(entry.returns.properties["root"].schema.ref, "DOM.Node")
+        self.assertEqual(contracts.entries(), [])
+        self.assertIsNone(contracts.entry("event", "DOM", "getDocument"))
+        self.assertIsNone(contracts.entry("method", "DOM", "missing"))
+
+    def test_selection_and_policy_changes_are_observed_without_stale_cache(self):
+        contracts = self.load()
+        contracts.selections["DOM"] = (["enable"], ["paused"])
+        contracts.domain_modes["DOM"] = "dispatch"
+        self.assertEqual(
+            [entry.key for entry in contracts.entries("DOM", modes={"dispatch"})],
+            ["DOM.enable"],
+        )
+        self.assertEqual(
+            [entry.key for entry in contracts.entries("DOM", modes={"types"})],
+            ["DOM.paused"],
+        )
+        contracts.entry_modes[("method", "DOM", "enable")] = "contract"
+        self.assertEqual(contracts.entries("DOM", modes={"dispatch"}), [])
+        self.assertIsNotNone(contracts.entry("method", "DOM", "enable"))
+        contracts.selections.clear()
+        self.assertEqual(contracts.entries(), [])
+
+    def test_resolved_docs_keep_metadata_and_effective_upstream_fields(self):
+        self.write_doc(
+            "DOM/methods/enable.yaml",
+            "summary: Enables DOM.\nsince: '4.1'\nparameters:\n"
+            "  - {name: compressed, type: boolean, optional: true}\n"
+            "examples:\n  - title: Enable.\n"
+            "    request: {id: 1, method: DOM.enable, params: {compressed: true}}\n",
+        )
+        contracts = self.load()
+        self.assertEqual(contracts.errors, [])
+        entry = contracts.entry("method", "DOM", "enable")
+        self.assertTrue(entry.documented)
+        self.assertEqual(entry.since, "4.1")
+        self.assertEqual(entry.summary, "Enables DOM.")
+        self.assertEqual(len(entry.examples), 1)
+        self.assertEqual(set(entry.parameters.properties), {"includeWhitespace", "compressed"})
+        selected = contracts.entries("DOM", kind="method")[0]
+        self.assertEqual(selected.examples, entry.examples)
+        self.assertEqual(selected.since, entry.since)
 
 
 if __name__ == "__main__":

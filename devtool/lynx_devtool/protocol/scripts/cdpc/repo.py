@@ -56,6 +56,14 @@ class Paths:
     primjs_protocols_source: Path
     lynx_config_source: Path
 
+    @property
+    def dispatch_header(self) -> Path:
+        return self.generated_header.with_name("cdp_dispatch.generated.h")
+
+    @property
+    def dispatch_source(self) -> Path:
+        return self.generated_source.with_name("cdp_dispatch.generated.cc")
+
 
 def get_paths() -> Paths:
     script_path = Path(__file__).resolve()
