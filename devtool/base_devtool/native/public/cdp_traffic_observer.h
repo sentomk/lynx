@@ -36,6 +36,9 @@ class CDPTrafficObserver {
 
 // Installs the process-wide observer. Pass nullptr to remove it.
 void SetCDPTrafficObserver(std::shared_ptr<CDPTrafficObserver> observer);
+bool IsCDPTrafficObserverInstalled();
+// Atomically install only when the slot is empty.
+bool TrySetCDPTrafficObserver(std::shared_ptr<CDPTrafficObserver> observer);
 void NotifyCDPResponseDropped(const void* channel, int64_t id);
 
 // Called by message channels. Messages of other types are ignored, and string

@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import sys
 
-from cdpc import emit, inventory, lint, model
+from cdpc import emit, inventory, lint, model, trace
 
 
 def output(problems, summary, format='text', **data):
@@ -32,7 +32,9 @@ def parser():
     write.add_argument('--dry-run', action='store_true')
     show = commands.add_parser('show', help='inspect domains, entries or one effective contract')
     show.add_argument('target', nargs='?')
-    for command in (check, write, show):
+    verify = commands.add_parser('verify', help='check recorded JSONL traffic against YAML')
+    verify.add_argument('inputs', nargs='+', metavar='TRACE_OR_TARGET')
+    for command in (check, write, show, verify):
         command.add_argument('--format', choices=('text','json'), default='text')
     return cli
 
@@ -78,6 +80,11 @@ def main(argv=None):
     repo = model.Repo.current()
     try:
         contract, sources = load(repo, getattr(args, 'strict', False))
+        if args.command == 'verify':
+            paths, targets = trace.split_inputs(args.inputs)
+            problems, count = trace.verify(contract, paths, targets)
+            return output(problems, f'cdpc verify: {count} messages, {len(problems)} violations',
+                          args.format, messages=count)
         if args.command == 'show':
             return show(repo, contract, sources, args.target, args.format)
         problems = lint.check(repo, contract)

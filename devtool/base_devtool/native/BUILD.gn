@@ -107,6 +107,14 @@ base_devtool_public_headers = [
   "public/base_devtool_export.h",
 ]
 
+if (enable_inspector) {
+  base_devtool_shared_sources += [
+    "cdp_traffic_recorder.cc",
+    "cdp_traffic_recorder.h",
+  ]
+  base_devtool_public_headers += [ "cdp_traffic_recorder.h" ]
+}
+
 base_devtool_source_set("base_devtool") {
   public = base_devtool_public_headers
 

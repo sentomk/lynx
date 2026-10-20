@@ -4,6 +4,10 @@
 // cspell:ignore lynxsetting lynxnativemodule hsr
 #include "devtool/lynx_devtool/lynx_devtool_ng.h"
 
+#if ENABLE_INSPECTOR
+#include "devtool/base_devtool/native/cdp_traffic_recorder.h"
+#endif
+
 #include "core/devtool_wrapper/devtool_pool.h"
 #include "core/services/recorder/record_payload.h"
 #include "core/shell/lynx_shell.h"
@@ -64,6 +68,9 @@ LynxDevToolNG::LynxDevToolNG(bool debuggable)
     : devtool_mediator_(std::make_shared<LynxDevToolMediator>()) {
   static std::once_flag flag;
   std::call_once(flag, [] {
+#if ENABLE_INSPECTOR
+    MaybeInstallCDPTrafficRecorderFromEnv();
+#endif
     auto& global_dispatcher =
         lynx::devtool::AbstractDevTool::GetGlobalMessageDispatcherInstance();
 

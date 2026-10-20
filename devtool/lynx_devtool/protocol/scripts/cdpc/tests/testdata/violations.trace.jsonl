@@ -1,0 +1,13 @@
+{"t":1,"dir":"in","channel":"a","message":{"id":1,"method":"Sample.get","params":[]}}
+{"t":2,"dir":"out","channel":"a","message":{"id":1,"result":{"node":{"lable":"typo"}}}}
+{"t":3,"dir":"in","channel":"a","message":{"id":2,"method":"Sample.get"}}
+{"t":4,"dir":"out","channel":"a","message":{"id":2,"error":{"code":"bad","message":"failed"}}}
+{"t":5,"dir":"out","channel":"a","message":{"method":"Sample.changed","params":{"reason":"two"}}}
+{"t":6,"dir":"in","channel":"a","message":{"id":3,"method":"Sample.unknown"}}
+{"t":7,"dir":"out","channel":"a","message":{"id":3,"result":{}}}
+{"t":8,"dir":"out","channel":"a","message":{"method":"Sample.unknown"}}
+{"t":9,"dir":"out","channel":"a","message":{"id":3,"result":{}}}
+{"t":10,"dir":"in","channel":"a","message":{"id":4,"method":"Sample.get"}}
+{"t":11,"dir":"dropped","channel":"a","id":4}
+{"t":12,"dir":"out","channel":"a","message":{"id":4,"result":{}}}
+{"t":13,"dir":"in","channel":"a","message":{"id":5,"method":"Sample.get"}}

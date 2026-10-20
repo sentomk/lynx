@@ -15,6 +15,14 @@ unittest_set("devtool_base_devtool_testset") {
 
   deps = [ "../../base_devtool/native:base_devtool" ]
 
+  if (enable_inspector) {
+    sources += [ "cdp_traffic_recorder_unittest.cc" ]
+    testdata_dir =
+        rebase_path("../../lynx_devtool/protocol/scripts/cdpc/tests/testdata",
+                    "")
+    defines = [ "CDPC_TESTDATA_DIR=\"$testdata_dir\"" ]
+  }
+
   include_dirs = [
     "//third_party/googletest/googletest/include",
     "../../../third_party/jsoncpp/include/",

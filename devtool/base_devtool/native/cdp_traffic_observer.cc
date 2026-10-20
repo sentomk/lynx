@@ -52,9 +52,26 @@ bool ParseMessage(const std::string& message, Json::Value* out) {
 
 void SetCDPTrafficObserver(std::shared_ptr<CDPTrafficObserver> observer) {
   ObserverSlot& slot = GetSlot();
+  {
+    std::lock_guard<std::mutex> lock(slot.mutex);
+    slot.observer.swap(observer);
+    slot.installed.store(slot.observer != nullptr, std::memory_order_release);
+  }
+  // An observer may drain its worker on destruction. Do not hold the slot lock.
+}
+
+bool IsCDPTrafficObserverInstalled() {
+  return GetSlot().installed.load(std::memory_order_acquire);
+}
+
+bool TrySetCDPTrafficObserver(std::shared_ptr<CDPTrafficObserver> observer) {
+  if (!observer) return false;
+  ObserverSlot& slot = GetSlot();
   std::lock_guard<std::mutex> lock(slot.mutex);
-  slot.installed.store(observer != nullptr, std::memory_order_release);
+  if (slot.observer) return false;
   slot.observer = std::move(observer);
+  slot.installed.store(true, std::memory_order_release);
+  return true;
 }
 
 void NotifyCDPResponseDropped(const void* channel, int64_t id) {
