@@ -58,6 +58,7 @@ unittest_set("devtool_agent_testset") {
   deps = [
     "../../../core/shell/testing:mock_tasm_delegate_testset",
     "../../base_devtool/native:base_devtool",
+    "../../lynx_devtool/protocol:contract_test_harness",
     "../mock:devtool_mock",
   ]
 

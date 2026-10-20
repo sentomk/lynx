@@ -18,7 +18,7 @@
 #include "devtool/base_devtool/native/public/cdp_responder.h"
 #include "devtool/base_devtool/native/test/message_sender_mock.h"
 #include "devtool/base_devtool/native/test/mock_receiver.h"
-#include "devtool/lynx_devtool/protocol/contract_checker.h"
+#include "devtool/lynx_devtool/protocol/contract_test_harness.h"
 #include "devtool/testing/mock/white_board_inspector_delegate_mock.h"
 #include "third_party/googletest/googletest/include/gtest/gtest.h"
 
@@ -26,18 +26,47 @@ namespace lynx {
 namespace devtool {
 namespace testing {
 
+class CheckedWhiteBoardDelegate : public WhiteBoardInspectorDelegateMock {
+ public:
+  explicit CheckedWhiteBoardDelegate(std::shared_ptr<MessageSender> sender)
+      : WhiteBoardInspectorDelegateMock(1), sender_(std::move(sender)) {}
+  void SendEvent(const Json::Value& value) override {
+    WhiteBoardInspectorDelegateMock::SendEvent(value);
+    sender_->SendMessage("CDP", value);
+  }
+
+ private:
+  std::shared_ptr<MessageSender> sender_;
+};
+
+class DelegateCommand : public CDPDomainAgentBase {
+ public:
+  using Handler = void (WhiteBoardInspectorDelegate::*)(
+      const std::shared_ptr<CDPResponder>&, const Json::Value&);
+  DelegateCommand(WhiteBoardInspectorDelegate& delegate, Handler handler)
+      : delegate_(delegate), handler_(handler) {}
+  void CallMethod(const std::shared_ptr<CDPResponder>& responder,
+                  const Json::Value& request) override {
+    (delegate_.*handler_)(responder, request["params"]);
+  }
+
+ private:
+  WhiteBoardInspectorDelegate& delegate_;
+  Handler handler_;
+};
+
 class WhiteBoardInspectorDelegateTest : public ::testing::Test {
  public:
   WhiteBoardInspectorDelegateTest() {}
   ~WhiteBoardInspectorDelegateTest() override {}
   void SetUp() override {
     MockReceiver::GetInstance().ResetAll();
-    delegate_ = std::make_shared<WhiteBoardInspectorDelegateMock>(1);
+    message_sender_ = harness_.Wrap(std::make_shared<MessageSenderMock>());
+    delegate_ = std::make_shared<CheckedWhiteBoardDelegate>(message_sender_);
     inspector_ = std::make_shared<WhiteBoardInspectorImpl>();
     white_board_ = std::make_shared<tasm::WhiteBoard>();
     inspector_->SetWhiteBoard(white_board_);
     white_board_->SetInspector(inspector_);
-    message_sender_ = std::make_shared<MessageSenderMock>();
 
     std::string key1 = "key1";
     std::string value1 = "\"value1\"";
@@ -60,9 +89,21 @@ class WhiteBoardInspectorDelegateTest : public ::testing::Test {
                              const Json::Value&),
                          const Json::Value& params, int64_t id = 123) {
     MockReceiver::GetInstance().ResetAll();
-    auto responder = std::make_shared<CDPResponder>(message_sender_, id);
-    (delegate_.get()->*method)(responder, params);
-    responder.reset();
+    Json::Value request(Json::objectValue);
+    request["id"] = static_cast<Json::Int64>(id);
+    request["params"] = params;
+    const std::pair<const char*, DelegateCommand::Handler> handlers[] = {
+        {"enable", &WhiteBoardInspectorDelegate::Enable},
+        {"disable", &WhiteBoardInspectorDelegate::Disable},
+        {"getSharedData", &WhiteBoardInspectorDelegate::GetSharedData},
+        {"setSharedData", &WhiteBoardInspectorDelegate::SetSharedData},
+        {"removeSharedData", &WhiteBoardInspectorDelegate::RemoveSharedData},
+        {"clear", &WhiteBoardInspectorDelegate::Clear}};
+    for (const auto& handler : handlers)
+      if (handler.second == method)
+        request["method"] = std::string("WhiteBoard.") + handler.first;
+    DelegateCommand agent(*delegate_, method);
+    harness_.Dispatch(agent, message_sender_, request);
     Json::Value response;
     Json::Reader reader;
     reader.parse(MockReceiver::GetInstance().received_message_.second, response,
@@ -70,10 +111,11 @@ class WhiteBoardInspectorDelegateTest : public ::testing::Test {
     return response;
   }
 
+  ContractTestHarness harness_;
   std::shared_ptr<WhiteBoardInspectorDelegateMock> delegate_;
   std::shared_ptr<WhiteBoardInspectorImpl> inspector_;
   std::shared_ptr<tasm::WhiteBoard> white_board_;
-  std::shared_ptr<MessageSenderMock> message_sender_;
+  std::shared_ptr<MessageSender> message_sender_;
 };
 
 TEST_F(WhiteBoardInspectorDelegateTest, Enable) {
@@ -276,61 +318,38 @@ TEST_F(WhiteBoardInspectorDelegateTest, Notify) {
 // event emitters, and checks every message against the generated CDP
 // contract, so changes to either side that break the declared shape fail here.
 TEST_F(WhiteBoardInspectorDelegateTest, ResponsesAndEventsMatchContract) {
-  std::vector<std::string> problems;
-  auto checker = ContractChecker::Create(
-      [&problems](const ContractViolation& violation) {
-        for (const auto& problem : violation.problems) {
-          problems.push_back(violation.method + ": " + problem);
-        }
-      });
-  ASSERT_NE(checker, nullptr);
-  const void* channel = this;
   int64_t id = 0;
-  auto run = [&](const std::string& method, auto handler, const Json::Value& params) {
-    Json::Value request(Json::objectValue);
-    request["id"] = static_cast<Json::Int64>(++id);
-    request["method"] = method;
-    if (!params.isNull()) {
-      request["params"] = params;
-    }
-    checker->OnIncomingMessage(channel, request);
-    checker->OnOutgoingMessage(channel, RunCommand(handler, params, id));
-  };
-  auto check_event = [&]() {
-    Json::Value event;
-    Json::Reader reader;
-    ASSERT_TRUE(reader.parse(delegate_->event_message_, event, false));
-    checker->OnOutgoingMessage(channel, event);
+  auto run = [&](const std::string&, auto handler, const Json::Value& params) {
+    RunCommand(handler, params, ++id);
   };
   Json::Value params(Json::ValueType::objectValue);
 
-  run("WhiteBoard.getSharedData", &WhiteBoardInspectorDelegate::GetSharedData, Json::Value());
+  run("WhiteBoard.getSharedData", &WhiteBoardInspectorDelegate::GetSharedData,
+      Json::Value());
   run("WhiteBoard.enable", &WhiteBoardInspectorDelegate::Enable, Json::Value());
   delegate_->SetInspector(inspector_);
   params["key"] = "key3";
   params["value"] = "\"value3\"";
-  run("WhiteBoard.setSharedData", &WhiteBoardInspectorDelegate::SetSharedData, params);
+  run("WhiteBoard.setSharedData", &WhiteBoardInspectorDelegate::SetSharedData,
+      params);
   params["value"] = "not json";
-  run("WhiteBoard.setSharedData", &WhiteBoardInspectorDelegate::SetSharedData, params);
-  run("WhiteBoard.getSharedData", &WhiteBoardInspectorDelegate::GetSharedData, Json::Value());
+  run("WhiteBoard.setSharedData", &WhiteBoardInspectorDelegate::SetSharedData,
+      params);
+  run("WhiteBoard.getSharedData", &WhiteBoardInspectorDelegate::GetSharedData,
+      Json::Value());
   params.removeMember("value");
   params["key"] = "key1";
-  run("WhiteBoard.removeSharedData", &WhiteBoardInspectorDelegate::RemoveSharedData, params);
+  run("WhiteBoard.removeSharedData",
+      &WhiteBoardInspectorDelegate::RemoveSharedData, params);
   run("WhiteBoard.clear", &WhiteBoardInspectorDelegate::Clear, Json::Value());
-  run("WhiteBoard.disable", &WhiteBoardInspectorDelegate::Disable, Json::Value());
+  run("WhiteBoard.disable", &WhiteBoardInspectorDelegate::Disable,
+      Json::Value());
 
   delegate_->OnSharedDataAdded("key", "1");
-  check_event();
   delegate_->OnSharedDataUpdated("key", "2");
-  check_event();
   delegate_->OnSharedDataRemoved("key");
-  check_event();
   delegate_->OnSharedDataCleared();
-  check_event();
-
-  EXPECT_TRUE(problems.empty()) << ::testing::PrintToString(problems);
 }
-
 
 }  // namespace testing
 }  // namespace devtool

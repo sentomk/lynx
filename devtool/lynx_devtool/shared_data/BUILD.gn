@@ -33,7 +33,7 @@ unittest_set("shared_data_testset") {
     "../../../core/shared_data:shared_data",
     "../../base_devtool/native:base_devtool",
     "../../testing/mock:devtool_mock",
-    "../protocol:contract_checker",
+    "../protocol:contract_test_harness",
   ]
   include_dirs = [ "//third_party/googletest/googletest/include" ]
 }

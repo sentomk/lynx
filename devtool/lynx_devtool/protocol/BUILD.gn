@@ -53,6 +53,17 @@ foreach(fixture,
   }
 }
 
+devtool_source_set("contract_test_harness") {
+  testonly = true
+  sources = [
+    "contract_test_harness.cc",
+    "contract_test_harness.h",
+  ]
+  public_deps = [ ":contract_checker" ]
+  deps = [ "//third_party/googletest:gtest" ]
+  include_dirs = [ "//third_party/googletest/googletest/include" ]
+}
+
 unittest_set("contract_checker_testset") {
   public_configs = [
     "../../../core:lynx_public_config",
@@ -61,13 +72,14 @@ unittest_set("contract_checker_testset") {
   sources = [
               "contract_checker_unittest.cc",
               "contract_examples_unittest.cc",
+              "contract_test_harness_unittest.cc",
             ] + get_target_outputs(":contract_cases") +
             get_target_outputs(":case_contract")
   deps = [
     ":case_contract",
     ":contract_cases",
   ]
-  public_deps = [ ":contract_checker" ]
+  public_deps = [ ":contract_test_harness" ]
   include_dirs = [ "//third_party/googletest/googletest/include" ]
 }
 

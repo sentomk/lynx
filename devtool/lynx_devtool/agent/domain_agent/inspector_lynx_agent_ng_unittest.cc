@@ -7,6 +7,7 @@
 #include "base/include/fml/thread.h"
 #include "base/include/log/logging.h"
 #include "devtool/lynx_devtool/agent/inspector_ui_executor.h"
+#include "devtool/lynx_devtool/protocol/contract_test_harness.h"
 #define private public
 #include "devtool/lynx_devtool/agent/lynx_devtool_mediator.h"
 #undef private
@@ -56,7 +57,7 @@ class InspectorLynxLogLevelTest : public ::testing::Test {
     // must survive the originating view/session.
     {
       InspectorLynxAgentNG agent(mediator);
-      agent.CallMethod(sender, message);
+      harness_.Dispatch(agent, harness_.Wrap(sender), message);
     }
     ui_thread_.GetTaskRunner()->PostSyncTask([] {});
     EXPECT_EQ(sender->count, 1);
@@ -69,6 +70,7 @@ class InspectorLynxLogLevelTest : public ::testing::Test {
     return Dispatch("Lynx.setLogLevel", params);
   }
 
+  ContractTestHarness harness_;
   fml::Thread ui_thread_{"log_agent_ui"};
   int saved_level_ = 0;
 };
@@ -117,6 +119,8 @@ TEST_F(InspectorLynxLogLevelTest, InvalidParamsDoNotChangeConfiguration) {
   for (const auto& params :
        {Json::Value(), Json::Value(2), Json::Value(Json::arrayValue),
         Json::Value(Json::objectValue)}) {
+    harness_.Expect(ContractViolation::Kind::kInvalidParams,
+                    "Lynx.setLogLevel");
     EXPECT_EQ(Dispatch("Lynx.setLogLevel", params)["error"]["code"].asInt(),
               -32602);
   }
@@ -125,6 +129,11 @@ TEST_F(InspectorLynxLogLevelTest, InvalidParamsDoNotChangeConfiguration) {
         Json::Value(""), Json::Value(2)}) {
     Json::Value params;
     params["level"] = value;
+    // The YAML declares a string; the agent additionally validates level names.
+    if (!value.isString()) {
+      harness_.Expect(ContractViolation::Kind::kInvalidParams,
+                      "Lynx.setLogLevel");
+    }
     EXPECT_EQ(Dispatch("Lynx.setLogLevel", params)["error"]["code"].asInt(),
               -32602);
   }

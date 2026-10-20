@@ -25,10 +25,12 @@
 #include "devtool/base_devtool/native/public/cdp_responder.h"
 #include "devtool/base_devtool/native/test/message_sender_mock.h"
 #include "devtool/base_devtool/native/test/mock_receiver.h"
+#include "devtool/lynx_devtool/agent/domain_agent/inspector_global_props_agent.h"
 #include "devtool/lynx_devtool/agent/inspector_default_executor.h"
 #include "devtool/lynx_devtool/agent/lynx_devtool_mediator.h"
 #include "devtool/lynx_devtool/agent/lynx_global_devtool_mediator.h"
 #include "devtool/lynx_devtool/js_debug/js/inspector_java_script_debugger_impl.h"
+#include "devtool/lynx_devtool/protocol/contract_test_harness.h"
 #include "devtool/testing/mock/cdp_event_listener_sender_mock.h"
 #include "devtool/testing/mock/devtool_platform_facade_mock.h"
 #include "devtool/testing/mock/lynx_devtool_ng_mock.h"
@@ -94,7 +96,29 @@ class DevToolMediatorTest : public ::testing::Test {
     ASSERT_EQ(f.wait_for(std::chrono::seconds(5)), std::future_status::ready);
   }
 
-  void TearDown() override { ResetRecorder(); }
+  void TearDown() override {
+    if (contract_) {
+      tasm_thread_->GetTaskRunner()->PostSyncTask([] {});
+      devtool_thread_->GetTaskRunner()->PostSyncTask([] {});
+      contract_.reset();
+    }
+    ResetRecorder();
+  }
+
+  void UseGlobalPropsContract() {
+    contract_ = std::make_unique<devtool::ContractTestHarness>();
+    message_sender_ = contract_->Wrap(message_sender_);
+    devtools_ng_->message_sender_ = message_sender_;
+  }
+
+  void CallGlobalProps(const char* method, int id, const Json::Value& params) {
+    devtool::InspectorGlobalPropsAgent agent(devtool_mediator_);
+    Json::Value request(Json::objectValue);
+    request["id"] = id;
+    request["method"] = method;
+    request["params"] = params;
+    contract_->Dispatch(agent, message_sender_, request);
+  }
 
  private:
   void ResetRecorder() {
@@ -109,6 +133,7 @@ class DevToolMediatorTest : public ::testing::Test {
     ASSERT_EQ(f.wait_for(std::chrono::seconds(5)), std::future_status::ready);
   }
 
+  std::unique_ptr<devtool::ContractTestHarness> contract_;
   std::shared_ptr<devtool::LynxDevToolMediator> devtool_mediator_;
   std::shared_ptr<devtool::MessageSender> message_sender_;
   std::shared_ptr<testing::DevToolPlatformFacadeMock> facade_;
@@ -1112,9 +1137,8 @@ TEST_F(DevToolMediatorTest, SetTag) {
 }
 
 TEST_F(DevToolMediatorTest, GlobalPropsCommandsRunOnTasmThreadCase) {
-  devtool_mediator_->GlobalPropsEnable(
-      std::make_shared<devtool::CDPResponder>(message_sender_, 1),
-      Json::Value());
+  UseGlobalPropsContract();
+  CallGlobalProps("GlobalProps.enable", 1, Json::Value());
   FlushTasmTasks();
   EXPECT_TRUE(devtool_mediator_->element_executor_->IsGlobalPropsEnabled());
   Json::Value res;
@@ -1124,15 +1148,11 @@ TEST_F(DevToolMediatorTest, GlobalPropsCommandsRunOnTasmThreadCase) {
   EXPECT_EQ(res["id"], 1);
   EXPECT_TRUE(res["result"].isObject());
 
-  devtool_mediator_->GlobalPropsDisable(
-      std::make_shared<devtool::CDPResponder>(message_sender_, 1),
-      Json::Value());
+  CallGlobalProps("GlobalProps.disable", 1, Json::Value());
   FlushTasmTasks();
   EXPECT_FALSE(devtool_mediator_->element_executor_->IsGlobalPropsEnabled());
 
-  devtool_mediator_->GlobalPropsGet(
-      std::make_shared<devtool::CDPResponder>(message_sender_, 2),
-      Json::Value());
+  CallGlobalProps("GlobalProps.get", 2, Json::Value());
   FlushTasmTasks();
   ASSERT_TRUE(reader.parse(
       devtool::MockReceiver::GetInstance().received_message_.second, res));
@@ -1144,9 +1164,7 @@ TEST_F(DevToolMediatorTest, GlobalPropsCommandsRunOnTasmThreadCase) {
 
   Json::Value replace_params(Json::ValueType::objectValue);
   replace_params["globalProps"]["key"] = "value";
-  devtool_mediator_->GlobalPropsReplace(
-      std::make_shared<devtool::CDPResponder>(message_sender_, 3),
-      replace_params);
+  CallGlobalProps("GlobalProps.replace", 3, replace_params);
   FlushTasmTasks();
   ASSERT_TRUE(reader.parse(
       devtool::MockReceiver::GetInstance().received_message_.second, res));
@@ -1158,30 +1176,17 @@ TEST_F(DevToolMediatorTest, GlobalPropsCommandsRunOnTasmThreadCase) {
 }
 
 TEST_F(DevToolMediatorTest, GlobalPropsCommandsWhenTasmRunnerUnavailableCase) {
+  UseGlobalPropsContract();
+  contract_->Expect(devtool::ContractViolation::Kind::kInvalidParams,
+                    "GlobalProps.replace");
   auto runner = devtool_mediator_->tasm_task_runner_;
   devtool_mediator_->tasm_task_runner_ = nullptr;
 
   std::vector<std::function<void()>> commands = {
-      [&] {
-        devtool_mediator_->GlobalPropsEnable(
-            std::make_shared<devtool::CDPResponder>(message_sender_, 7),
-            Json::Value());
-      },
-      [&] {
-        devtool_mediator_->GlobalPropsDisable(
-            std::make_shared<devtool::CDPResponder>(message_sender_, 7),
-            Json::Value());
-      },
-      [&] {
-        devtool_mediator_->GlobalPropsGet(
-            std::make_shared<devtool::CDPResponder>(message_sender_, 7),
-            Json::Value());
-      },
-      [&] {
-        devtool_mediator_->GlobalPropsReplace(
-            std::make_shared<devtool::CDPResponder>(message_sender_, 7),
-            Json::Value());
-      },
+      [&] { CallGlobalProps("GlobalProps.enable", 7, Json::Value()); },
+      [&] { CallGlobalProps("GlobalProps.disable", 7, Json::Value()); },
+      [&] { CallGlobalProps("GlobalProps.get", 7, Json::Value()); },
+      [&] { CallGlobalProps("GlobalProps.replace", 7, Json::Value()); },
   };
 
   for (auto& command : commands) {
@@ -1201,6 +1206,7 @@ TEST_F(DevToolMediatorTest, GlobalPropsCommandsWhenTasmRunnerUnavailableCase) {
 }
 
 TEST_F(DevToolMediatorTest, GlobalPropsChangedUpdatesTimestampCase) {
+  UseGlobalPropsContract();
   // The timestamp advances even when the domain is disabled.
   devtool_mediator_->GlobalPropsChanged();
   FlushTasmTasks();

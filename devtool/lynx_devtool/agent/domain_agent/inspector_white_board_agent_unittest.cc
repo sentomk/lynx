@@ -22,6 +22,7 @@
 #include "devtool/lynx_devtool/agent/inspector_tasm_executor.h"
 #include "devtool/lynx_devtool/agent/lynx_devtool_mediator.h"
 #include "devtool/lynx_devtool/js_debug/js/inspector_java_script_debugger_impl.h"
+#include "devtool/lynx_devtool/protocol/contract_test_harness.h"
 #include "devtool/lynx_devtool/shared_data/white_board_inspector_impl.h"
 #include "devtool/lynx_devtool/shared_data/white_board_inspector_runtime_delegate.h"
 #include "third_party/googletest/googletest/include/gtest/gtest.h"
@@ -75,6 +76,7 @@ class InspectorWhiteBoardAgentTest : public ::testing::Test {
     tasm_thread_ = std::make_unique<fml::Thread>("white_board_test_tasm");
     js_thread_ = std::make_unique<fml::Thread>("white_board_test_js");
     sender_ = std::make_shared<WhiteBoardTestMessageSender>();
+    checked_sender_ = harness_.Wrap(sender_);
     agent_ = std::make_unique<InspectorWhiteBoardAgent>(mediator_);
   }
 
@@ -110,10 +112,7 @@ class InspectorWhiteBoardAgentTest : public ::testing::Test {
     message["id"] = static_cast<Json::Int64>(++request_id_);
     message["method"] = method;
     message["params"] = params;
-    {
-      auto responder = std::make_shared<CDPResponder>(sender_, request_id_);
-      agent_->CallMethod(responder, message);
-    }
+    { harness_.Dispatch(*agent_, checked_sender_, message); }
     FlushThreads();
 
     auto messages = sender_->Messages();
@@ -161,6 +160,8 @@ class InspectorWhiteBoardAgentTest : public ::testing::Test {
     ExpectSuccess("WhiteBoard.disable");
   }
 
+  ContractTestHarness harness_;
+  std::shared_ptr<MessageSender> checked_sender_;
   int64_t request_id_ = 0;
   std::unique_ptr<fml::Thread> tasm_thread_;
   std::unique_ptr<fml::Thread> js_thread_;
@@ -208,6 +209,8 @@ TEST_F(InspectorWhiteBoardAgentTest, JSPathReportsMissingDelegate) {
 }
 
 TEST_F(InspectorWhiteBoardAgentTest, UnknownMethodReturnsMethodNotFound) {
+  harness_.Expect(ContractViolation::Kind::kUnknownMethod,
+                  "WhiteBoard.unknown");
   const Json::Value response = Dispatch("WhiteBoard.unknown");
   EXPECT_EQ(response["error"]["code"].asInt(),
             static_cast<int>(CDPErrorCode::MethodNotFound));
