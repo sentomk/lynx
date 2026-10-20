@@ -2,6 +2,7 @@
 # Licensed under the Apache License Version 2.0 that can be found in the
 # LICENSE file in the root directory of this source tree.
 import("../../../config.gni")
+import("../../../core/Lynx.gni")
 import("../../../testing/test.gni")
 
 source_set("devtool_mock") {
@@ -38,6 +39,17 @@ source_set("devtool_mock") {
     "../../lynx_devtool/shared_data:shared_data",
     "//third_party/zlib",
   ]
+
+  # The real renderer/runtime pulled in by these mocks references TestBench
+  # implementations when enabled. Keep that link closure with the mock target
+  # instead of requiring every test executable to add the implementations.
+  deps = []
+  if (enable_testbench_recorder) {
+    deps += [ "../../../core/services/recorder:recorder" ]
+  }
+  if (enable_testbench_replay) {
+    deps += [ "../../../core/services/replay:replay" ]
+  }
 
   include_dirs = [ "//third_party/googletest/googletest/include" ]
 
