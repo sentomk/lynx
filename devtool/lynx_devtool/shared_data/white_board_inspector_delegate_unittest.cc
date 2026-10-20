@@ -18,7 +18,7 @@
 #include "devtool/base_devtool/native/public/cdp_responder.h"
 #include "devtool/base_devtool/native/test/message_sender_mock.h"
 #include "devtool/base_devtool/native/test/mock_receiver.h"
-#include "devtool/lynx_devtool/protocol/cdp_contract_checker.h"
+#include "devtool/lynx_devtool/protocol/contract_checker.h"
 #include "devtool/testing/mock/white_board_inspector_delegate_mock.h"
 #include "third_party/googletest/googletest/include/gtest/gtest.h"
 
@@ -277,8 +277,8 @@ TEST_F(WhiteBoardInspectorDelegateTest, Notify) {
 // contract, so changes to either side that break the declared shape fail here.
 TEST_F(WhiteBoardInspectorDelegateTest, ResponsesAndEventsMatchContract) {
   std::vector<std::string> problems;
-  auto checker = CDPContractChecker::CreateWithGeneratedContract(
-      [&problems](const CDPContractViolation& violation) {
+  auto checker = ContractChecker::Create(
+      [&problems](const ContractViolation& violation) {
         for (const auto& problem : violation.problems) {
           problems.push_back(violation.method + ": " + problem);
         }

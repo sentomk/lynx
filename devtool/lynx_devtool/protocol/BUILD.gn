@@ -4,34 +4,74 @@
 import("../../../testing/test.gni")
 import("../devtool.gni")
 
-# Checks CDP traffic against the generated contract. It links about 130 KB of
-# contract data, so only test and debug targets should depend on it.
-devtool_source_set("cdp_contract_checker") {
-  sources = [
-    "cdp_contract_checker.cc",
-    "cdp_contract_checker.h",
-    "cdp_contract_schema.generated.cc",
-    "cdp_contract_schema.generated.h",
+action("contract_data") {
+  testonly = true
+  script = "scripts/embed_contract.py"
+  inputs = [ "cdp_contract.generated.json" ]
+  outputs = [ "$target_gen_dir/cdp_contract_data.cc" ]
+  args = [
+    "--input",
+    rebase_path(inputs[0], root_build_dir),
+    "--output",
+    rebase_path(outputs[0], root_build_dir),
   ]
+}
+
+devtool_source_set("contract_checker") {
+  testonly = true
+  sources = [
+              "contract_checker.cc",
+              "contract_checker.h",
+            ] + get_target_outputs(":contract_data")
+  deps = [ ":contract_data" ]
   public_deps = [ "../../base_devtool/native:base_devtool" ]
 }
 
-unittest_set("cdp_contract_checker_testset") {
+foreach(fixture,
+        [
+          "contract_cases",
+          "case_contract",
+        ]) {
+  action(fixture) {
+    testonly = true
+    script = "scripts/embed_contract.py"
+    inputs = [ "scripts/cdpc/tests/testdata/$fixture.json" ]
+    outputs = [ "$target_gen_dir/$fixture.cc" ]
+    if (fixture == "contract_cases") {
+      symbol = "ContractCasesJson"
+    } else {
+      symbol = "CaseContractJson"
+    }
+    args = [
+      "--input",
+      rebase_path(inputs[0], root_build_dir),
+      "--output",
+      rebase_path(outputs[0], root_build_dir),
+      "--symbol",
+      symbol,
+    ]
+  }
+}
+
+unittest_set("contract_checker_testset") {
   public_configs = [
     "../../../core:lynx_public_config",
     "../:devtool_common_config",
   ]
   sources = [
-    "cdp_contract_checker_unittest.cc",
-
+              "contract_checker_unittest.cc",
+              "contract_examples_unittest.cc",
+            ] + get_target_outputs(":contract_cases") +
+            get_target_outputs(":case_contract")
+  deps = [
+    ":case_contract",
+    ":contract_cases",
   ]
-  public_deps = [
-    ":cdp_contract_checker",
-  ]
+  public_deps = [ ":contract_checker" ]
   include_dirs = [ "//third_party/googletest/googletest/include" ]
 }
 
-unittest_exec("cdp_contract_checker_unittest_exec") {
+unittest_exec("contract_checker_unittest_exec") {
   sources = []
-  deps = [ ":cdp_contract_checker_testset" ]
+  deps = [ ":contract_checker_testset" ]
 }

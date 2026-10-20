@@ -127,7 +127,7 @@ targets({
         "coverage": True,
         "enable_parallel":True,
     },
-    "cdp_contract_checker_unittest_exec": {
+    "contract_checker_unittest_exec": {
         "cwd": ".",
         "owners":["ZhaoSongGOO"],
         "coverage": True,

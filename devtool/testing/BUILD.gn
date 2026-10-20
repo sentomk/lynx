@@ -44,7 +44,7 @@ group("devtool_ng_unit_test") {
     ":devtoolng_unittest_exec",
     "../lynx_devtool/input:input_unittests_exec",
     "../lynx_devtool/message_handler:message_handler_unittest_exec",
-    "../lynx_devtool/protocol:cdp_contract_checker_unittest_exec",
+    "../lynx_devtool/protocol:contract_checker_unittest_exec",
     "../lynx_devtool/shared_data:shared_data_unittest_exec",
   ]
   if (is_mac || is_linux || is_win) {
