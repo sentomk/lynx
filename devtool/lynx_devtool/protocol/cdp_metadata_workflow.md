@@ -13,15 +13,16 @@ continues to dispatch methods and emit events.
 | `cdp_upstream/protocol.json` | Vendored standard protocol definitions |
 | `cdp_support.yaml` | Explained field deviations from upstream |
 | `cdp_manifest.generated.yaml` | Version 2 method registration inventory |
-| `cdp_contract.generated.json` | Version 1 effective schemas and examples |
+| `cdp_contract.generated.json` | Version 2 effective schemas and examples |
 | `scripts/cdpc/` | Python model, checks, inventory, and CLI |
 | `scripts/embed_contract.py` | Standard-library-only JSON embedding for GN |
 | `contract_checker.{h,cc}` | Test-only field and response lifecycle checks |
 | `contract_test_harness.{h,cc}` | Test-only Agent integration |
+| `contract_invalid_params.{h,cc}` | Contract-driven invalid parameter variants |
 
 Use `tools/cdpc` from the repository root (`tools\cdpc.ps1` on Windows).
 Python requires PyYAML. Sync dependencies with `tools/hab sync .` when PrimJS or
-build tools are missing. `tools/cdpc --help` lists the six command groups.
+build tools are missing. `tools/cdpc --help` lists the seven command groups.
 
 ## Schemas and local YAML
 
@@ -128,11 +129,11 @@ methods, undeclared event names found in sources, and field-level deviations.
 
 | Codes | What is checked |
 |---|---|
-| E101–E103 | YAML structure, supported field types, references |
+| E101–E104 | YAML structure, supported field types, references, omitted entries |
 | E201–E202 | Example envelopes and field values |
 | E301 | Missing or stale generated files |
 | E401–E403 | Missing contracts, unregistered local methods, missing PrimJS source |
-| E501–E502 | Invalid or redundant deviations |
+| E501–E502 / W501 | Invalid or stale deviations/violations; registered root warnings |
 
 Targets accept domains, full names, and shell-quoted globs. Generated-file checks
 always cover all entries. Missing PrimJS source is a warning unless `--strict`
@@ -150,12 +151,14 @@ For mediator events, also replace the sender returned by the DevTool instance.
 Drain queued TASM, UI, and DevTool tasks before harness destruction. The harness
 installs a process-wide observer, so use one per test. Its destructor flushes
 pending requests and fails on unexpected violations. `Expect(kind, name)` consumes
-one matching violation and fails if it never occurs. Use it only for intentionally
-invalid traffic; an agent may reject values more narrowly than its YAML type.
+one matching violation and fails if it never occurs. Use it for intentionally
+invalid traffic or a documented existing protocol mismatch. Keep each expectation
+local to its test and explain the reason; an agent may reject values more narrowly
+than its YAML type.
 
 The violation kinds are `kInvalidParams`, `kInvalidResult`, `kInvalidError`,
-`kInvalidEvent`, `kUnknownMethod`, `kUnknownEvent`, `kDuplicateResponse`, `kDropped`,
-and `kUnanswered`. A dropped responder is reported before its unchanged InternalError
+`kInvalidEvent`, `kUnsupportedContract`, `kUnknownMethod`, `kUnknownEvent`, `kDuplicateResponse`, `kDropped`,
+and `kUnanswered`. A dropped responder is reported before its InternalError
 fallback; that fallback is not checked again for result fields. A second response
 is still a duplicate. Requests with the same id on different channels are distinct.
 
@@ -165,6 +168,30 @@ after `tools/cdpc write` to consume contract changes. Documentation examples are
 message fragments: output fields are checked, but they do not imply a full
 request lifecycle. Examples of InvalidParams/InvalidRequest may send invalid
 request fields intentionally.
+
+### Invalid parameter variants
+
+`ForEachInvalidParamsVariant(method, valid_request, run)` is declared in
+`contract_invalid_params.h`. It replaces fields with incompatible strings,
+objects, and arrays, then checks that every response has the original id and
+InvalidParams (-32602). It also mutates one level of nested object fields.
+A null seed selects a successful contract example; without one, only optional
+parameters are mutated on an empty request. An explicit seed lets tests exercise
+required fields even when the document has no example. The callback dispatches
+through the harness and drains asynchronous work before returning a response.
+Declare `Expect(kInvalidParams, method)` once per generated request.
+
+The Input, Page, DOM, and CSS regression tests additionally construct required
+fields from the contract to exercise methods without examples. Each variant
+starts from the same seed; omitted optional fields are never inserted as null.
+Production handlers use `cdp_param_utils.h` before conversions, including native
+integer/float bounds and nested array members. They do not link the test-only
+contract checker. Numerical business limits can be stricter than the schema.
+
+DOM, CSS, Page, Input, UITree, Animation, and LayerTree Agent tests check responses
+and wrap available event senders. Page.navigate still omits result.frameId, and
+Page.frameNavigated still emits an incomplete frame; its dedicated test records
+these two existing violations with `Expect()`.
 
 ## Recording and offline verification
 
@@ -182,6 +209,8 @@ cat /tmp/explorer.trace.jsonl | tools/cdpc verify - Lynx
 
 Each JSONL row contains a millisecond timestamp `t`, a channel string, and a `dir`
 of `in`, `out`, or `dropped`. In/out rows carry `message`; dropped rows carry `id`.
+The queue is limited to 10,000 records. Overflow drops new records and produces
+a final `stats` row with `dropped_messages`; `verify` warns that data is missing.
 Messages over 1 MiB retain method/id metadata and top-level `truncated: true`.
 The verifier still tracks their lifecycle but skips field validation. Each file
 is a separate session and flushes unanswered requests at EOF. It reads current

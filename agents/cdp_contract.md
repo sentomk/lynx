@@ -41,6 +41,7 @@ tools/cdpc write [--dry-run] [--allow-unsupported] [--format text|json]
 tools/cdpc show [TARGET] [--format text|json]
 tools/cdpc new Domain.name [--event] [--from-upstream]
 tools/cdpc verify TRACE... [TARGET...] [--format text|json]
+tools/cdpc capture [TARGET...] --client ID --session ID [-o PATH] [--format text|json]
 tools/cdpc upstream diff [DOMAIN] [--format text|json]
 tools/cdpc upstream update [--revision REV] [--format text|json]
 ```

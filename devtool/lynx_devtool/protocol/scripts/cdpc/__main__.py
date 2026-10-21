@@ -2,7 +2,7 @@
 # Licensed under the Apache License Version 2.0 that can be found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Six commands over the same contract model; no source mutations."""
+"""Contract tools for declarations, local checks, and captured traffic."""
 import argparse
 from dataclasses import asdict, replace
 import json
