@@ -138,3 +138,26 @@ method. Static example checks use a typed sample node id. Output files must not
 already exist. Requests are saved before sending, so failures retain a partial
 trace. Structured CLI errors retain their CDP code and message; older CLI
 versions that emit only text errors are reported as environment failures.
+
+## Independent CDPC toolchain
+
+The contract semantics now live in the independent CDPC repository as
+`python/cdpc_core`. Lynx's `scripts/cdpc` retains path adapters, registration
+scanning, the manifest and C++ bindings, snapshot update, capture and the consumer
+CLI. `cdpc_toolchain.json` pins the exact dependency commit; set `CDPC_SOURCE_DIR`
+to a clean matching checkout (default: a sibling `cdpc` directory). The wrapper
+never downloads dependencies during a build. Changes to the independent core
+must be committed and deliberately adopted by updating the pin.
+
+Use `tools/cdpc runtime export --output-directory <dir>` to produce normalized
+implementation evidence and an explicit standalone config. Use
+`tools/cdpc runtime write --output-directory <dir>` for new native C++ method
+descriptors. Native scalar roots are explicit omissions (E701); use
+`--allow-unsupported` only when reviewing that omission report. Generation is not
+production dispatch integration. The existing contract JSON remains v2, and the
+new repository-independent descriptor graph is v1.
+
+See [toolchain and generation verification](../devtool/lynx_devtool/protocol/tests/cdpc_runtime/README.md)
+for standalone commands, parity checks and the C++ integration test. Stable
+generated fixtures are checked into CDPC; full catalog outputs are currently
+separate test artifacts while the Lynx business migration remains paused.

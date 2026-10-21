@@ -1,6 +1,6 @@
 # CDPC 与 Lynx CDP 架构设计
 
-更新：2026-10-21。状态：整体架构仍是设计草案；实施步骤 1、2 已在独立仓库 `/Users/bytedance/code/cdpc` 实现，包括独立构建、Params、Reply、契约描述、方法表辅助与测试后端示例。独立 CLI、生成链拆分、Lynx sender adapter 和业务迁移仍待后续实施，原 Lynx 代码改造保持暂停。
+更新：2026-10-22。状态：实施步骤 1、2、3 已完成。独立仓库 `/Users/bytedance/code/cdpc` 提供 C++ runtime 与 Python 契约核心/CLI；Lynx 已通过固定版本适配接回核心，并接通新 C++ 描述生成与编译验证。整体业务架构仍是设计草案，Lynx sender adapter、Domain 接入及设备/前端验证属于步骤 4 以后；原业务代码改造保持暂停。
 
 当前可运行 API 与构建说明见 [CDPC README](../cdpc/README.md) 和 [runtime API](../cdpc/docs/runtime.md)。文中的整体路由、Domain 和平台接入示例仍为目标形态，不表示已经接入 Lynx。
 
@@ -648,16 +648,49 @@ Domain 内需要的线程操作可以与 Domain 放在一起，不强制每个�
 
 ## 实施顺序与验证
 
-步骤 1、2 已在独立 CDPC 仓库完成；其余步骤保持分开验证。当前有 10 组 CTest，包含复用旧工具的 14 个方法契约案例。普通构建与禁用 exceptions/RTTI 的 UBSan 构建均通过；另验证了消费者提供既有 JsonCpp target 的接入方式。ASan 构建成功，但在本机进入 main 前卡在 sanitizer 初始化，不能作为内存检查通过的证据。
+步骤 1、2、3 已完成；业务迁移与设备验证仍单独推进。当前有 10 组 CTest，包含复用旧工具的 14 个方法契约案例。普通构建与禁用 exceptions/RTTI 的 UBSan 构建均通过；另验证了消费者提供既有 JsonCpp target 的接入方式。ASan 构建成功，但在本机进入 main 前卡在 sanitizer 初始化，不能作为内存检查通过的证据。
 
 共享案例的来源哈希及范围见 [fixture 说明](../cdpc/tests/testdata/README.md)。事件案例尚未纳入本轮；旧 fixture 中显式声明 non-object-root 的方法也没有直接迁入。首版 native MethodContract 明确要求 object 根，遇到这种描述返回 InternalError，未来接入需要显式决定兼容方式。
 
 1. **先建立 CDPC runtime 的独立构建与测试入口。** 公共头、源文件和测试分别组织；显式接入同一版本的 JsonCpp、Lynx expected 和 CDPErrorCode。检查传递依赖及符号，不通过复制基础库来解决构建问题。这里的“独立构建”指不构建 Lynx 应用和 Domain，不表示首版完全不需要 Lynx 公共依赖。
 2. **实现 Params、Reply 和最小契约描述。** 先用固定契约输入及测试完成回调证明读取、生命周期和一次完成语义；完成缺失/null/default、数值边界、嵌套、并发、重入和回调释放的测试。使用已有共享案例，避免另立一套字段规则。未支持的契约显式失败。
-3. **接通契约工具链与生成产物。** 从现有工具提取可复用核心，消除固定根目录；Lynx 的注册扫描、C++ 输出绑定和设备采样保留 adapter。用同一份契约比较拆分前后的诊断及生成结果，固定工具版本。runtime 测试夹具通过不等于生成链已经接通。
+3. **接通契约工具链与生成产物。** 从现有工具提取可复用核心，消除固定根目录；Lynx 的注册扫描、C++ 输出绑定和设备采样保留 adapter。用同一份契约比较拆分前后的诊断及生成结果，固定工具版本。现已完成：三份旧产物与四组 CLI 报告逐字一致，独立 CLI 安装验证通过，新描述参与 C++ 编译和运行时校验。
 4. **在 Lynx 接入一个可审查的方法切片。** 首选本文已展开的 Input.insertText：方法表、入口 Params、拥有内容的 string、UI 任务、业务状态和 Reply 完成形成闭环。先实现 sender 适配工厂；补足平台失效时的执行状态，不改 CDPResponder。与固定 develop 比较默认值、错误优先级和响应；新旧代码只选择一个执行入口。
 5. **用不同形态的路径验证架构。** Input 手势检查真实异步完成；DOM/CSS 检查 TASM 与节点状态；WhiteBoard 检查双后端选择；一条事件检查订阅生命周期；Debugger/Runtime 检查引擎拥有最终响应。逐项补齐 reload、Destroy、断连和取消的行为，分别记录构建、单测和运行结果。
 6. **按 Domain 扩大迁移并删除失去职责的旧转发。** 同步更新静态表扫描，逐步整理现有 26 个 map、147 条注册。保留承担线程内状态的对象，旧桥接在对应路径完成后删除，不为容器统一改变特殊方法语义。
+
+### 步骤 3 的实际交付
+
+CDPC 新增 `cdpc_core` 包和 `cdpc` CLI，显式接收 source paths、normalized inventory 和 outputs；核心不猜测 Lynx 根目录，不扫描 C++、不下载协议或访问设备。Lynx 保留旧 CLI、源码扫描、manifest、C++ namespace/include/output 绑定及 capture。原有 `tools/cdpc` 通过兼容导入调用唯一一份核心，避免维护两套语义实现。
+
+版本由 [cdpc_toolchain.json](devtool/lynx_devtool/protocol/cdpc_toolchain.json) 固定到 CDPC 的完整提交号；`CDPC_SOURCE_DIR` 指向该干净 checkout，默认取兄弟目录。Python 包版本为 0.1.0；config/inventory/schema graph 格式为 v1，旧 contract JSON 仍为 v2。工具源码或 runtime 有未提交修改时，消费者入口拒绝生成，普通应用构建不联网取工具。
+
+```sh
+# Lynx 导出注册证据和显式路径；独立 CLI 只读这些输入。
+tools/cdpc runtime export --output-directory /tmp/cdpc-input
+cdpc write --config /tmp/cdpc-input/cdpc.yaml
+cdpc check --config /tmp/cdpc-input/cdpc.yaml
+
+# Lynx 将 graph 转成静态 MethodContract，生成结果目录必须显式指定。
+tools/cdpc runtime write --output-directory /tmp/cdpc-catalog --allow-unsupported
+```
+
+生成的调用形态已经可编译：`cdpc::Method<InputDomain>{cdpc::methods::kInputInsertText, &InputDomain::InsertText}`。Schema、字段数组与引用使用 immutable static storage；跨编译单元共享同一地址。生成器负责数据描述，业务表仍手写，Dispatch 与真实 sender 工厂仍属步骤 4。
+
+| 验证 | 本次结果 |
+|---|---|
+| 独立 Python 核心/CLI | 32 项测试通过；wheel 安装后在不加入 Lynx PYTHONPATH 的环境运行 |
+| Lynx adapter 与旧命令 | 64 项 Python 测试通过；187 个注册方法、52 个观测事件 |
+| 拆分前后对比 | manifest、contract JSON、旧 C++ 参数规则逐字一致；check、write dry-run、show、upstream diff 的退出码和完整 JSON 相同 |
+| 契约基线 | 当前工作区仍为 0 errors、4 个已登记的根类型 warning；独立 CLI 的 contract JSON 也逐字相同 |
+| 新 native 描述 | 184 个 object-root 方法编译并通过 ValidateContract；递归 DOM、Input owned value 与延迟 Reply 路径通过 |
+| 生成夹具 | Input 示例及 14 个共享方法案例使用实际生成的头文件；10 组 CTest 在普通和 UBSan/no-exceptions/no-RTTI 模式通过 |
+
+`Lynx.getVersion`、`Replay.end`、`Template.templateConfigInfo` 不符合 native MethodContract 的 object 根要求，新 C++ emitter 输出 E701 和省略报告；默认退出 1，显式 `--allow-unsupported` 才降为 warning。旧 JSON/graph 仍保留其真实契约。事件契约继续进入独立 check/verify，native method emitter 不提供事件出口。
+
+当前 `Page.reload`、`Tracing.start` 的暂停中声明会影响全量描述，所以全量 header/report 作为单独验证产物放在输出目录；提交的稳定 Input/共享案例夹具可独立复现。这些生成物尚未接入生产 GN 或业务分发，不把生成表当作运行时方法覆盖率。
+
+具体复现命令和对比脚本见 [Lynx 验证说明](devtool/lynx_devtool/protocol/tests/cdpc_runtime/README.md)，独立 API 见 [CDPC tooling](../cdpc/docs/tooling.md)。
 
 ### 第一轮实现的交付范围
 
@@ -671,7 +704,7 @@ Domain 内需要的线程操作可以与 Domain 放在一起，不强制每个�
 | Input.insertText 契约示例 | 合法 text 到达测试业务回调，非法参数不会调用业务；异步持有期间不提前释放回复 |
 | Lynx sender adapter 的验证（步骤 4） | 现有 CDPResponder 保持不变；待在真实发送链验证重复回复和未完成释放 |
 
-示例使用测试业务回调，不能据此声称真实设备已插入文本。第一轮不迁移全部 Agent，也不重写 Mediator；Lynx 真正的方法接入对应上面的第 4 项。工具核心的完整独立与生产结果/事件出口接入仍按后续交付验证。
+示例使用测试业务回调，不能据此声称真实设备已插入文本。第一轮不迁移全部 Agent，也不重写 Mediator；Lynx 真正的方法接入对应上面的第 4 项。工具核心与生成链已经完成独立验证；生产结果/事件出口仍按后续步骤接入。
 
 不同时执行新旧业务做“双写比较”，因为输入、导航和状态更新有副作用。对照使用相同案例、受控测试及各自录制结果。
 
@@ -688,7 +721,7 @@ Domain 内需要的线程操作可以与 Domain 放在一起，不强制每个�
 | 独立工具与 runtime | 工具核心测试不依赖 Lynx checkout；runtime 单测显式接入公共类型依赖；固定输入可复现；Lynx 注册扫描无漏报 |
 | 构建与真实链路 | 相应 C++/平台构建、harness、录制 verify、设备/前端结果分别记录，不互相替代 |
 
-完整 checker 和 harness 继续保持 testonly；运行时出口用专门的轻量规则实现。当前验证限于上述独立 runtime 和测试后端，不代表已执行整张验证矩阵，也不恢复此前暂缓的设备验证。
+完整 checker 和 harness 继续保持 testonly；运行时出口用专门的轻量规则实现。当前验证包含独立工具、生成链、runtime 和测试后端，不代表已执行整张验证矩阵，也不恢复此前暂缓的设备验证。
 
 ## 已确定的取舍与后续验证点
 
@@ -696,7 +729,7 @@ Domain 内需要的线程操作可以与 Domain 放在一起，不强制每个�
 
 将 Params 继续传到底层虽然改动较少，但协议知识仍然分散；把 Mediator 全删也会丢失生命周期和线程协调。目标是在 Domain 收拢协议流程，在环境装配与线程内对象保留真实状态。
 
-实施时仍需依据测量确定结果/事件规则的体积与开销、Params 快照成本，以及各平台可以承诺的业务完成程度。Lynx adapter 的实际分包路径和独立工具的发布渠道在拆分实现时确定；这些不影响本文的仓库职责边界。
+实施时仍需依据测量确定结果/事件规则的体积与开销、Params 快照成本，以及各平台可以承诺的业务完成程度。Lynx adapter 的路径与 Git revision pin 已在步骤 3 落地；正式 Python 包发布渠道仍待确定；这些不影响本文的仓库职责边界。
 
 ## 源码依据与固定对比基线
 
@@ -721,7 +754,7 @@ Domain 内需要的线程操作可以与 Domain 放在一起，不强制每个�
 | [devtool_platform_facade.h](devtool/lynx_devtool/agent/devtool_platform_facade.h)、[devtool_platform_android.cc](devtool/lynx_devtool/agent/android/devtool_platform_android.cc) | 平台 InsertText 的 void 接口与 delegate 失效路径 |
 | [inspector_tasm_executor.cc](devtool/lynx_devtool/agent/inspector_tasm_executor.cc) | DOM/CSS 参数读取、GlobalProps 和 WhiteBoard 调用 |
 | [white_board_inspector_delegate.cc](devtool/lynx_devtool/shared_data/white_board_inspector_delegate.cc) | WhiteBoard 参数、错误和结果路径 |
-| [model.py](devtool/lynx_devtool/protocol/scripts/cdpc/model.py)、[inventory.py](devtool/lynx_devtool/protocol/scripts/cdpc/inventory.py) | 当前固定目录与源码扫描耦合 |
+| [model.py](devtool/lynx_devtool/protocol/scripts/cdpc/model.py)、[inventory.py](devtool/lynx_devtool/protocol/scripts/cdpc/inventory.py) | Lynx 路径适配与源码注册扫描 |
 | [param_rules.py](devtool/lynx_devtool/protocol/scripts/cdpc/param_rules.py)、[emit.py](devtool/lynx_devtool/protocol/scripts/cdpc/emit.py) | 规则生成、Lynx include/namespace 与输出路径 |
 | [protocol/BUILD.gn](devtool/lynx_devtool/protocol/BUILD.gn)、[tools/cdpc](tools/cdpc) | testonly checker 与当前 CLI 启动方式 |
 
