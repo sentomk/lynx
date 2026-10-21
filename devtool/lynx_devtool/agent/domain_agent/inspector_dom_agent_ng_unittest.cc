@@ -20,6 +20,7 @@
 #include "devtool/lynx_devtool/agent/inspector_tasm_executor.h"
 #include "devtool/lynx_devtool/agent/inspector_ui_executor.h"
 #include "devtool/lynx_devtool/element/element_inspector.h"
+#include "devtool/lynx_devtool/protocol/contract_test_harness.h"
 #include "devtool/testing/mock/devtool_platform_facade_mock.h"
 #include "third_party/googletest/googletest/include/gtest/gtest.h"
 #include "third_party/jsoncpp/include/json/reader.h"
@@ -58,7 +59,8 @@ class InspectorDOMAgentNGTest : public ::testing::Test {
         tasm_mediator_.get(), lynx_env_config);
     MockReceiver::GetInstance().ResetAll();
     devtool_mediator_ = std::make_shared<LynxDevToolMediator>();
-    message_sender_ = std::make_shared<MessageSenderMock>();
+    contract_ = std::make_unique<ContractTestHarness>();
+    message_sender_ = contract_->Wrap(std::make_shared<MessageSenderMock>());
     element_executor_ =
         std::make_shared<InspectorTasmExecutor>(devtool_mediator_, nullptr, 1);
     ui_executor_ = std::make_shared<InspectorUIExecutor>(devtool_mediator_);
@@ -71,6 +73,13 @@ class InspectorDOMAgentNGTest : public ::testing::Test {
     devtool_mediator_->element_executor_ = element_executor_;
     devtool_mediator_->ui_executor_ = ui_executor_;
     agent_ = std::make_shared<InspectorDOMAgentNG>(devtool_mediator_);
+  }
+
+  void TearDown() override {
+    FlushTasmTasks();
+    FlushUITasks();
+    devtool_mediator_->default_task_runner_->PostSyncTask([] {});
+    contract_.reset();
   }
 
  protected:
@@ -102,7 +111,8 @@ class InspectorDOMAgentNGTest : public ::testing::Test {
   std::shared_ptr<LynxDevToolMediator> devtool_mediator_;
   std::shared_ptr<InspectorTasmExecutor> element_executor_;
   std::shared_ptr<InspectorUIExecutor> ui_executor_;
-  std::shared_ptr<MessageSenderMock> message_sender_;
+  std::shared_ptr<MessageSender> message_sender_;
+  std::unique_ptr<ContractTestHarness> contract_;
   std::shared_ptr<FocusRecordingPlatformFacade> facade_;
   std::unique_ptr<lynx::tasm::ElementManager> manager_;
   std::unique_ptr<fml::Thread> tasm_thread_;
@@ -123,7 +133,7 @@ TEST_F(InspectorDOMAgentNGTest, FocusReturnsSuccessAndFocusesNode) {
   message["method"] = "DOM.focus";
   message["params"]["nodeId"] = node_id;
 
-  agent_->CallMethod(message_sender_, message);
+  contract_->Dispatch(*agent_, message_sender_, message);
   FlushTasmTasks();
   FlushUITasks();
 
@@ -140,7 +150,7 @@ TEST_F(InspectorDOMAgentNGTest, FocusMissingNodeReturnsError) {
   message["method"] = "DOM.focus";
   message["params"]["nodeId"] = 99999;
 
-  agent_->CallMethod(message_sender_, message);
+  contract_->Dispatch(*agent_, message_sender_, message);
   FlushTasmTasks();
 
   Json::Value response = ParseLastResponse();
@@ -157,7 +167,7 @@ TEST_F(InspectorDOMAgentNGTest, FocusMissingNodeIdReturnsInvalidParams) {
   message["method"] = "DOM.focus";
   message["params"] = Json::Value(Json::ValueType::objectValue);
 
-  agent_->CallMethod(message_sender_, message);
+  contract_->Dispatch(*agent_, message_sender_, message);
   FlushTasmTasks();
 
   Json::Value response = ParseLastResponse();
