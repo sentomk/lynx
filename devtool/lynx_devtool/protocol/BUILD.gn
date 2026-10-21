@@ -56,6 +56,8 @@ foreach(fixture,
 devtool_source_set("contract_test_harness") {
   testonly = true
   sources = [
+    "contract_invalid_params.cc",
+    "contract_invalid_params.h",
     "contract_test_harness.cc",
     "contract_test_harness.h",
   ]

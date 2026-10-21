@@ -29,6 +29,8 @@ unittest_set("devtool_agent_testset") {
     "../../lynx_devtool/agent/inspector_ui_executor_unittest.cc",
     "../../lynx_devtool/lynx_devtool_ng_unittest.cc",
     "../../lynx_devtool/native_module/native_module_record_manager_unittest.cc",
+    "../../lynx_devtool/protocol/contract_invalid_params_unittest.cc",
+    "contract_agent_test.h",
     "devtool_mediator_unittest.cc",
     "record_payload_unittest.cc",
   ]
