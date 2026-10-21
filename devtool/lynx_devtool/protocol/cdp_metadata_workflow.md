@@ -155,7 +155,7 @@ invalid traffic; an agent may reject values more narrowly than its YAML type.
 
 The violation kinds are `kInvalidParams`, `kInvalidResult`, `kInvalidError`,
 `kInvalidEvent`, `kUnknownMethod`, `kUnknownEvent`, `kDuplicateResponse`, `kDropped`,
-and `kUnanswered`. A dropped responder is reported before its unchanged success
+and `kUnanswered`. A dropped responder is reported before its unchanged InternalError
 fallback; that fallback is not checked again for result fields. A second response
 is still a duplicate. Requests with the same id on different channels are distinct.
 

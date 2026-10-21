@@ -98,8 +98,8 @@ violations, so a later handler crash does not hide them. For intentional malform
 harness.Expect(ContractViolation::Kind::kInvalidParams, "Lynx.setLogLevel");
 ```
 
-`kDropped` means a responder was destroyed without an explicit reply. Its existing
-success fallback is unchanged. `kUnanswered` means a request was still pending at
+`kDropped` means a responder was destroyed without an explicit reply. It logs the drop and replies
+with InternalError instead of success. `kUnanswered` means a request was still pending at
 harness teardown. Do not suppress either to hide an asynchronous lifetime issue.
 
 The checker, embedded JSON action, and harness are test-only. `embed_contract.py`

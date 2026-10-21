@@ -10,6 +10,7 @@
 #include <string>
 #include <utility>
 
+#include "base/include/log/logging.h"
 #include "devtool/base_devtool/native/public/cdp_error_code.h"
 #include "devtool/base_devtool/native/public/cdp_traffic_observer.h"
 #include "devtool/base_devtool/native/public/message_sender.h"
@@ -54,7 +55,7 @@ class CDPResponder {
   CDPResponder(const CDPResponder&) = delete;
   CDPResponder& operator=(const CDPResponder&) = delete;
 
-  // Emits a fallback OK response when neither SendSuccess() nor SendError()
+  // Emits an InternalError when neither SendSuccess() nor SendError()
   // has been called and the sender has not been retrieved for compatibility
   // use. This is what guarantees "exactly one response per request".
   ~CDPResponder() {
@@ -62,7 +63,9 @@ class CDPResponder {
       if (id_.has_value()) {
         NotifyCDPResponseDropped(sender_.get(), *id_);
       }
-      SendSuccess();
+      LOGE("CDP request was dropped without a reply, id=" << id_.value_or(-1));
+      SendError(CDPErrorCode::InternalError,
+                "Request was dropped without a reply");
     }
   }
 
@@ -76,8 +79,7 @@ class CDPResponder {
   // bad_optional_access.
 
   // Sends the OK response { id, result } and releases the sender so the
-  // response can be emitted at most once. |result| defaults to an empty object,
-  // which is also what the destructor's fallback response carries.
+  // response can be emitted at most once. |result| defaults to an empty object.
   void SendSuccess(Json::Value result = Json::Value(Json::objectValue)) {
     if (!sender_) {
       return;

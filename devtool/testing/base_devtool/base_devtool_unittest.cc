@@ -214,13 +214,16 @@ TEST_F(BaseDevToolTest, CDPResponderSendsSuccess) {
   EXPECT_EQ(sender->Messages()[0].second["result"]["value"].asString(), "ok");
 }
 
-TEST_F(BaseDevToolTest, CDPResponderDestructorSendsFallbackSuccess) {
+TEST_F(BaseDevToolTest, CDPResponderDestructorSendsInternalError) {
   auto sender = std::make_shared<CapturingMessageSender>();
   { auto responder = std::make_shared<devtool::CDPResponder>(sender, 8); }
 
   ASSERT_EQ(sender->Messages().size(), 1u);
   EXPECT_EQ(sender->Messages()[0].second["id"].asInt64(), 8);
-  EXPECT_TRUE(sender->Messages()[0].second["result"].isObject());
+  EXPECT_FALSE(sender->Messages()[0].second.isMember("result"));
+  EXPECT_EQ(sender->Messages()[0].second["error"]["code"], -32603);
+  EXPECT_EQ(sender->Messages()[0].second["error"]["message"],
+            "Request was dropped without a reply");
 }
 
 TEST_F(BaseDevToolTest, CDPResponderSendsExplicitError) {
