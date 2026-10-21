@@ -607,10 +607,7 @@ void InspectorUIExecutor::LynxGetRectToWindow(
 void InspectorUIExecutor::LynxTransferData(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"data", CDPParamType::kString},
-                       {"dataType", CDPParamType::kString},
-                       {"eof", CDPParamType::kBoolean}})) {
+  if (!CheckCDPParams(sender, message, "Lynx.transferData")) {
     return;
   }
 
@@ -727,10 +724,7 @@ std::vector<double> InspectorUIExecutor::GetBoxModel(
 void InspectorUIExecutor::LynxSendEventToVM(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"data", CDPParamType::kString, true},
-                       {"event", CDPParamType::kString},
-                       {"vmType", CDPParamType::kString}})) {
+  if (!CheckCDPParams(sender, message, "Lynx.sendVMEvent")) {
     return;
   }
 

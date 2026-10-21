@@ -3182,9 +3182,15 @@ void InspectorTasmExecutor::HideHighlight(
 void InspectorTasmExecutor::LynxGetProperties(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "Lynx.getProperties")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt64())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -3205,9 +3211,15 @@ void InspectorTasmExecutor::LynxGetProperties(
 void InspectorTasmExecutor::LynxGetData(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "Lynx.getData")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt64())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -3228,9 +3240,15 @@ void InspectorTasmExecutor::LynxGetData(
 void InspectorTasmExecutor::LynxGetComponentId(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "Lynx.getComponentId")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt64())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
