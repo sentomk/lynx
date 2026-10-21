@@ -3444,9 +3444,7 @@ void InspectorTasmExecutor::SendLayoutTreeWithCallback(
 void InspectorTasmExecutor::PageGetResourceContent(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"frameId", CDPParamType::kString},
-                       {"url", CDPParamType::kString}})) {
+  if (!CheckCDPParams(sender, message, "Page.getResourceContent")) {
     return;
   }
 

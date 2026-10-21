@@ -162,15 +162,18 @@ void InspectorUIExecutor::PageReload(bool ignore_cache,
 void InspectorUIExecutor::StartScreencast(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"everyNthFrame", CDPParamType::kInteger, true},
-                       {"format", CDPParamType::kString, true},
-                       {"maxHeight", CDPParamType::kInteger, true},
-                       {"maxWidth", CDPParamType::kInteger, true},
-                       {"mode", CDPParamType::kString, true},
-                       {"quality", CDPParamType::kInteger, true}})) {
+  if (!CheckCDPParams(sender, message, "Page.startScreencast")) {
     return;
   }
+  if ((!message["params"]["quality"].isNull() && !message["params"]["quality"].isInt()) ||
+      (!message["params"]["maxWidth"].isNull() && !message["params"]["maxWidth"].isInt()) ||
+      (!message["params"]["maxHeight"].isNull() && !message["params"]["maxHeight"].isInt()) ||
+      (!message["params"]["everyNthFrame"].isNull() && !message["params"]["everyNthFrame"].isInt())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -227,9 +230,7 @@ void InspectorUIExecutor::StopScreencast(
 void InspectorUIExecutor::PageEnable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(
-          sender, message,
-          {{"enableFileChooserOpenedEvent", CDPParamType::kBoolean, true}})) {
+  if (!CheckCDPParams(sender, message, "Page.enable")) {
     return;
   }
 
@@ -305,16 +306,15 @@ void InspectorUIExecutor::PageGetResourceTree(
 void InspectorUIExecutor::PageReload(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"ignoreCache", CDPParamType::kBoolean, true},
-                       {"loaderId", CDPParamType::kString, true},
-                       {"scriptToEvaluateOnLoad", CDPParamType::kString, true},
-                       {"pageData", CDPParamType::kString, true},
-                       {"fromPageDataFragments", CDPParamType::kBoolean, true},
-                       {"pageDataLength", CDPParamType::kInteger, true},
-                       {"url", CDPParamType::kString, true}})) {
+  if (!CheckCDPParams(sender, message, "Page.reload")) {
     return;
   }
+  if ((!message["params"]["pageDataLength"].isNull() && !message["params"]["pageDataLength"].isInt())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -343,12 +343,7 @@ void InspectorUIExecutor::PageReload(
 void InspectorUIExecutor::PageNavigate(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"frameId", CDPParamType::kString, true},
-                       {"referrer", CDPParamType::kString, true},
-                       {"referrerPolicy", CDPParamType::kString, true},
-                       {"transitionType", CDPParamType::kString, true},
-                       {"url", CDPParamType::kString}})) {
+  if (!CheckCDPParams(sender, message, "Page.navigate")) {
     return;
   }
 
@@ -535,8 +530,7 @@ void InspectorUIExecutor::SetUIStyle(
 void InspectorUIExecutor::ScreencastFrameAck(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"sessionId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "Page.screencastFrameAck")) {
     return;
   }
 
