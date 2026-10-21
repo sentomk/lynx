@@ -4,6 +4,7 @@
 
 #include "devtool/lynx_devtool/agent/input_request_handler.h"
 
+#include <limits>
 #include <string>
 #include <utility>
 
@@ -216,17 +217,36 @@ void InputRequestHandler::Reset() { synthetic_gesture_controller_.reset(); }
 
 void InputRequestHandler::EmulateTouchFromMouseEvent(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (!CheckCDPParams(responder, params,
-                      {{"button", CDPParamType::kString},
-                       {"clickCount", CDPParamType::kInteger, true},
-                       {"deltaX", CDPParamType::kFloat, true},
-                       {"deltaY", CDPParamType::kFloat, true},
-                       {"modifiers", CDPParamType::kInteger, true},
-                       {"timestamp", CDPParamType::kNumber, true},
-                       {"type", CDPParamType::kString},
-                       {"x", CDPParamType::kInteger},
-                       {"y", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(responder, params, "Input.emulateTouchFromMouseEvent")) {
     return;
+  }
+
+  for (const char* field : {"clickCount", "modifiers", "buttons"}) {
+    if (params.isMember(field) && !params[field].isInt()) {
+      responder->SendError(
+          CDPErrorCode::InvalidParams,
+          std::string("Invalid params: out of int range: ") + field);
+      return;
+    }
+  }
+  float delta_x = 0, delta_y = 0;
+  if (!ReadFiniteFloatParam(params.get("deltaX", 0), delta_x) ||
+      !ReadFiniteFloatParam(params.get("deltaY", 0), delta_y)) {
+    responder->SendError(CDPErrorCode::InvalidParams,
+                         "Invalid params: mouse deltas exceed float range");
+    return;
+  }
+  for (const char* field : {"x", "y"}) {
+    double coordinate = 0;
+    if (!ReadFiniteNumberParam(params[field], coordinate) ||
+        coordinate < std::numeric_limits<int>::min() ||
+        coordinate > std::numeric_limits<int>::max()) {
+      responder->SendError(
+          CDPErrorCode::InvalidParams,
+          std::string("Invalid params: coordinate exceeds int range: ") +
+              field);
+      return;
+    }
   }
 
   if (!devtool_platform_facade_) {
@@ -240,8 +260,8 @@ void InputRequestHandler::EmulateTouchFromMouseEvent(
   auto input = std::make_shared<MouseEvent>();
   input->button_ = params["button"].asString();
   input->click_count_ = params["clickCount"].asInt();
-  input->delta_x_ = params["deltaX"].asFloat();
-  input->delta_y_ = params["deltaY"].asFloat();
+  input->delta_x_ = delta_x;
+  input->delta_y_ = delta_y;
   input->modifiers_ = params["modifiers"].asInt();
   input->type_ = params["type"].asString();
   input->x_ = params["x"].asInt();
@@ -252,24 +272,36 @@ void InputRequestHandler::EmulateTouchFromMouseEvent(
 
 void InputRequestHandler::DispatchMouseEvent(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (!CheckCDPParams(responder, params,
-                      {{"button", CDPParamType::kString, true},
-                       {"buttons", CDPParamType::kInteger, true},
-                       {"clickCount", CDPParamType::kInteger, true},
-                       {"deltaX", CDPParamType::kFloat, true},
-                       {"deltaY", CDPParamType::kFloat, true},
-                       {"force", CDPParamType::kNumber, true},
-                       {"modifiers", CDPParamType::kInteger, true},
-                       {"pointerType", CDPParamType::kString, true},
-                       {"tangentialPressure", CDPParamType::kNumber, true},
-                       {"tiltX", CDPParamType::kNumber, true},
-                       {"tiltY", CDPParamType::kNumber, true},
-                       {"timestamp", CDPParamType::kNumber, true},
-                       {"twist", CDPParamType::kInteger, true},
-                       {"type", CDPParamType::kString},
-                       {"x", CDPParamType::kCoordinate},
-                       {"y", CDPParamType::kCoordinate}})) {
+  if (!CheckCDPParams(responder, params, "Input.dispatchMouseEvent")) {
     return;
+  }
+
+  for (const char* field : {"clickCount", "modifiers", "buttons"}) {
+    if (params.isMember(field) && !params[field].isInt()) {
+      responder->SendError(
+          CDPErrorCode::InvalidParams,
+          std::string("Invalid params: out of int range: ") + field);
+      return;
+    }
+  }
+  float delta_x = 0, delta_y = 0;
+  if (!ReadFiniteFloatParam(params.get("deltaX", 0), delta_x) ||
+      !ReadFiniteFloatParam(params.get("deltaY", 0), delta_y)) {
+    responder->SendError(CDPErrorCode::InvalidParams,
+                         "Invalid params: mouse deltas exceed float range");
+    return;
+  }
+  for (const char* field : {"x", "y"}) {
+    double coordinate = 0;
+    if (!ReadFiniteNumberParam(params[field], coordinate) ||
+        coordinate < std::numeric_limits<int>::min() ||
+        coordinate > std::numeric_limits<int>::max()) {
+      responder->SendError(
+          CDPErrorCode::InvalidParams,
+          std::string("Invalid params: coordinate exceeds int range: ") +
+              field);
+      return;
+    }
   }
 
   if (!devtool_platform_facade_) {
@@ -283,8 +315,8 @@ void InputRequestHandler::DispatchMouseEvent(
     input->button_ = ButtonFromButtons(params["buttons"].asInt());
   }
   input->click_count_ = params.get("clickCount", 0).asInt();
-  input->delta_x_ = params.get("deltaX", 0).asFloat();
-  input->delta_y_ = params.get("deltaY", 0).asFloat();
+  input->delta_x_ = delta_x;
+  input->delta_y_ = delta_y;
   input->modifiers_ = params.get("modifiers", 0).asInt();
   input->type_ = params["type"].asString();
   input->x_ = params["x"].asInt();
@@ -295,6 +327,8 @@ void InputRequestHandler::DispatchMouseEvent(
 
 void InputRequestHandler::InsertText(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
+  if (!CheckCDPParams(responder, params, "Input.insertText")) return;
+
   if (!devtool_platform_facade_) {
     responder->SendError(CDPErrorCode::ServerError,
                          "Input target is unavailable");
@@ -320,6 +354,8 @@ void InputRequestHandler::EnsureSyntheticGestureController(
 
 void InputRequestHandler::SynthesizeTapGesture(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
+  if (!CheckCDPParams(responder, params, "Input.synthesizeTapGesture")) return;
+
   ValidatedTapGesture gesture;
   CDPErrorCode error_code = CDPErrorCode::ServerError;
   std::string error_message;
