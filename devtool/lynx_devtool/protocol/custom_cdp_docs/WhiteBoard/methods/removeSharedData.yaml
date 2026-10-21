@@ -9,13 +9,12 @@ events:
 notes:
   - Requires WhiteBoard.enable first. Otherwise returns a CDP error with code -32000 and message WhiteBoard is not enabled.
   - Dispatches through LynxDevToolMediator to the TASM executor when available, otherwise to the JavaScript debugger.
-  - If neither backend task runner is available, returns a CDP error with code -32000 and message No WhiteBoard task runner is available.
   - A missing or non-string key param returns a CDP error with code -32602 and a message naming the field, such as params.key: missing required field.
   - Returns an empty result object when the key exists and is removed.
   - Returns a CDP error with code -32602 and message The key does not exist! when the key is not present.
   - Returns a CDP error with code -32000 and message Failed to remove shared data! when the WhiteBoard instance is unavailable.
   - On success, enabled delegates receive WhiteBoard.onSharedDataRemoved with params.key.
-  - If no WhiteBoard inspector delegate is attached, returns a CDP error with code -32000 and message WhiteBoard inspector delegate is not attached.
+  - An attached WhiteBoard inspector delegate is required. A missing delegate produces a server error with code -32000.
 examples:
   - title: Remove one shared-data entry
     request:

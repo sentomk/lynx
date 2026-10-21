@@ -6,11 +6,10 @@ events:
 notes:
   - Requires WhiteBoard.enable first. Otherwise returns a CDP error with code -32000 and message WhiteBoard is not enabled.
   - Dispatches through LynxDevToolMediator to the TASM executor when available, otherwise to the JavaScript debugger.
-  - If neither backend task runner is available, returns a CDP error with code -32000 and message No WhiteBoard task runner is available.
   - Returns an empty result object on success.
   - Returns a CDP error with code -32000 and message Failed to clear shared data! when the WhiteBoard instance is unavailable.
   - On success, enabled delegates receive WhiteBoard.onSharedDataCleared without params.
-  - If no WhiteBoard inspector delegate is attached, returns a CDP error with code -32000 and message WhiteBoard inspector delegate is not attached.
+  - An attached WhiteBoard inspector delegate is required. A missing delegate produces a server error with code -32000.
 examples:
   - title: Clear shared data
     request:
