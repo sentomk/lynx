@@ -1180,11 +1180,15 @@ lynx::tasm::Element* InspectorTasmExecutor::GetElementRoot() {
 void InspectorTasmExecutor::QuerySelector(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"nodeId", CDPParamType::kInteger},
-                       {"selector", CDPParamType::kString}})) {
+  if (!CheckCDPParams(sender, message, "DOM.querySelector")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -1208,9 +1212,15 @@ void InspectorTasmExecutor::QuerySelector(
 void InspectorTasmExecutor::GetAttributes(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "DOM.getAttributes")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -1228,9 +1238,15 @@ void InspectorTasmExecutor::GetAttributes(
 void InspectorTasmExecutor::InnerText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "DOM.innerText")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -1264,11 +1280,15 @@ void InspectorTasmExecutor::InnerText(
 void InspectorTasmExecutor::QuerySelectorAll(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"nodeId", CDPParamType::kInteger},
-                       {"selector", CDPParamType::kString}})) {
+  if (!CheckCDPParams(sender, message, "DOM.querySelectorAll")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -1312,10 +1332,7 @@ InspectorTasmExecutor::GetFunctionForElementMap() {
 void InspectorTasmExecutor::DOM_Enable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"compressionThreshold", CDPParamType::kInteger, true},
-                       {"includeWhitespace", CDPParamType::kString, true},
-                       {"useCompression", CDPParamType::kBoolean, true}})) {
+  if (!CheckCDPParams(sender, message, "DOM.enable")) {
     return;
   }
 
@@ -1343,11 +1360,15 @@ void InspectorTasmExecutor::DOM_Disable(
 void InspectorTasmExecutor::GetDocument(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"depth", CDPParamType::kInteger, true},
-                       {"pierce", CDPParamType::kBoolean, true}})) {
+  if (!CheckCDPParams(sender, message, "DOM.getDocument")) {
     return;
   }
+  if ((!message["params"]["depth"].isNull() && !message["params"]["depth"].isInt())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content = Json::Value(Json::ValueType::objectValue);
@@ -1397,14 +1418,17 @@ void InspectorTasmExecutor::GetDocument(
 void InspectorTasmExecutor::DescribeNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"backendNodeId", CDPParamType::kInteger, true},
-                       {"depth", CDPParamType::kInteger, true},
-                       {"nodeId", CDPParamType::kInteger, true},
-                       {"objectId", CDPParamType::kString, true},
-                       {"pierce", CDPParamType::kBoolean, true}})) {
+  if (!CheckCDPParams(sender, message, "DOM.describeNode")) {
     return;
   }
+  if ((!message["params"]["depth"].isNull() && !message["params"]["depth"].isInt()) ||
+      (!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt()) ||
+      (!message["params"]["backendNodeId"].isNull() && !message["params"]["backendNodeId"].isInt())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   const Json::Value params = message["params"];
   int depth = 1;
@@ -1548,12 +1572,16 @@ void InspectorTasmExecutor::GetDocumentWithBoxModel(
 void InspectorTasmExecutor::RequestChildNodes(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"depth", CDPParamType::kInteger, true},
-                       {"nodeId", CDPParamType::kInteger},
-                       {"pierce", CDPParamType::kBoolean, true}})) {
+  if (!CheckCDPParams(sender, message, "DOM.requestChildNodes")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt()) ||
+      (!message["params"]["depth"].isNull() && !message["params"]["depth"].isInt())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content = Json::Value(Json::ValueType::objectValue);
@@ -1595,12 +1623,15 @@ void InspectorTasmExecutor::RequestChildNodes(
 void InspectorTasmExecutor::DOM_GetBoxModel(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"backendNodeId", CDPParamType::kInteger, true},
-                       {"nodeId", CDPParamType::kInteger, true},
-                       {"objectId", CDPParamType::kString, true}})) {
+  if (!CheckCDPParams(sender, message, "DOM.getBoxModel")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -1728,12 +1759,15 @@ bool InspectorTasmExecutor::BuildBoxModelQuery(tasm::Element* element,
 void InspectorTasmExecutor::SetAttributesAsText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"name", CDPParamType::kString, true},
-                       {"nodeId", CDPParamType::kInteger},
-                       {"text", CDPParamType::kString}})) {
+  if (!CheckCDPParams(sender, message, "DOM.setAttributesAsText")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -1775,9 +1809,7 @@ void InspectorTasmExecutor::MarkUndoableState(
 void InspectorTasmExecutor::PushNodesByBackendIdsToFrontend(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"backendNodeIds", CDPParamType::kArray},
-                       {"backendNodeIds[]", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "DOM.pushNodesByBackendIdsToFrontend")) {
     return;
   }
 
@@ -1796,7 +1828,7 @@ void InspectorTasmExecutor::PushNodesByBackendIdsToFrontend(
 void InspectorTasmExecutor::RemoveNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "DOM.removeNode")) {
     return;
   }
 
@@ -1807,10 +1839,7 @@ void InspectorTasmExecutor::RemoveNode(
 void InspectorTasmExecutor::MoveTo(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"insertBeforeNodeId", CDPParamType::kInteger, true},
-                       {"nodeId", CDPParamType::kInteger},
-                       {"targetNodeId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "DOM.moveTo")) {
     return;
   }
 
@@ -1821,10 +1850,7 @@ void InspectorTasmExecutor::MoveTo(
 void InspectorTasmExecutor::CopyTo(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"insertBeforeNodeId", CDPParamType::kInteger, true},
-                       {"nodeId", CDPParamType::kInteger},
-                       {"targetNodeId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "DOM.copyTo")) {
     return;
   }
 
@@ -1834,13 +1860,15 @@ void InspectorTasmExecutor::CopyTo(
 void InspectorTasmExecutor::GetOuterHTML(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"backendNodeId", CDPParamType::kInteger, true},
-                       {"includeShadowDOM", CDPParamType::kBoolean, true},
-                       {"nodeId", CDPParamType::kInteger, true},
-                       {"objectId", CDPParamType::kString, true}})) {
+  if (!CheckCDPParams(sender, message, "DOM.getOuterHTML")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt64())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -1859,9 +1887,7 @@ void InspectorTasmExecutor::GetOuterHTML(
 void InspectorTasmExecutor::SetOuterHTML(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"nodeId", CDPParamType::kInteger},
-                       {"outerHTML", CDPParamType::kString}})) {
+  if (!CheckCDPParams(sender, message, "DOM.setOuterHTML")) {
     return;
   }
 
@@ -1871,7 +1897,7 @@ void InspectorTasmExecutor::SetOuterHTML(
 void InspectorTasmExecutor::SetInspectedNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "DOM.setInspectedNode")) {
     return;
   }
 
@@ -1885,10 +1911,7 @@ void InspectorTasmExecutor::SetInspectedNode(
 void InspectorTasmExecutor::PerformSearch(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(
-          sender, message,
-          {{"includeUserAgentShadowDOM", CDPParamType::kBoolean, true},
-           {"query", CDPParamType::kString}})) {
+  if (!CheckCDPParams(sender, message, "DOM.performSearch")) {
     return;
   }
 
@@ -1910,12 +1933,16 @@ void InspectorTasmExecutor::PerformSearch(
 void InspectorTasmExecutor::GetSearchResults(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"fromIndex", CDPParamType::kInteger},
-                       {"searchId", CDPParamType::kString},
-                       {"toIndex", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "DOM.getSearchResults")) {
     return;
   }
+  if ((!message["params"]["fromIndex"].isNull() && !message["params"]["fromIndex"].isInt()) ||
+      (!message["params"]["toIndex"].isNull() && !message["params"]["toIndex"].isInt())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -1948,7 +1975,7 @@ void InspectorTasmExecutor::GetSearchResults(
 void InspectorTasmExecutor::DiscardSearchResults(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message, {{"searchId", CDPParamType::kString}})) {
+  if (!CheckCDPParams(sender, message, "DOM.discardSearchResults")) {
     return;
   }
 
@@ -1972,9 +1999,15 @@ void InspectorTasmExecutor::DiscardSearchResults(
 void InspectorTasmExecutor::GetOriginalNodeIndex(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "DOM.getOriginalNodeIndex")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt64())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -1995,9 +2028,15 @@ void InspectorTasmExecutor::GetOriginalNodeIndex(
 void InspectorTasmExecutor::GetOriginalNodeSourceInfo(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "DOM.getOriginalNodeSourceInfo")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt64())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -2035,17 +2074,15 @@ void InspectorTasmExecutor::GetOriginalNodeSourceInfo(
 void InspectorTasmExecutor::ScrollIntoViewIfNeeded(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"backendNodeId", CDPParamType::kInteger, true},
-                       {"nodeId", CDPParamType::kInteger, true},
-                       {"objectId", CDPParamType::kString, true},
-                       {"rect", CDPParamType::kObject, true},
-                       {"rect.height", CDPParamType::kNumber},
-                       {"rect.width", CDPParamType::kNumber},
-                       {"rect.x", CDPParamType::kNumber},
-                       {"rect.y", CDPParamType::kNumber}})) {
+  if (!CheckCDPParams(sender, message, "DOM.scrollIntoViewIfNeeded")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt64())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -2084,10 +2121,7 @@ void InspectorTasmExecutor::ScrollIntoViewIfNeeded(
 void InspectorTasmExecutor::DOM_Focus(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"backendNodeId", CDPParamType::kInteger, true},
-                       {"nodeId", CDPParamType::kInteger, true},
-                       {"objectId", CDPParamType::kString, true}})) {
+  if (!CheckCDPParams(sender, message, "DOM.focus")) {
     return;
   }
 
@@ -2238,8 +2272,7 @@ void InspectorTasmExecutor::WhiteBoardClear(
 void InspectorTasmExecutor::DOMEnableDomTree(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"ignoreCache", CDPParamType::kBoolean, true}})) {
+  if (!CheckCDPParams(sender, message, "DOM.enableDomTree")) {
     return;
   }
 
@@ -2267,8 +2300,7 @@ void InspectorTasmExecutor::DOMEnableDomTree(
 void InspectorTasmExecutor::DOMDisableDomTree(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"ignoreCache", CDPParamType::kBoolean, true}})) {
+  if (!CheckCDPParams(sender, message, "DOM.disableDomTree")) {
     return;
   }
 

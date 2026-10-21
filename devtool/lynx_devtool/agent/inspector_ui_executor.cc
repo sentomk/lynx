@@ -80,14 +80,16 @@ void InspectorUIExecutor::SetShell(lynx::shell::LynxShell* shell) {
 void InspectorUIExecutor::GetNodeForLocation(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(
-          sender, message,
-          {{"ignorePointerEventsNone", CDPParamType::kBoolean, true},
-           {"includeUserAgentShadowDOM", CDPParamType::kBoolean, true},
-           {"x", CDPParamType::kInteger},
-           {"y", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "DOM.getNodeForLocation")) {
     return;
   }
+  if ((!message["params"]["x"].isNull() && !message["params"]["x"].isInt()) ||
+      (!message["params"]["y"].isNull() && !message["params"]["y"].isInt())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   if (!shell_) {
     sender->SendErrorResponse(message["id"].asInt64(), -32603,
