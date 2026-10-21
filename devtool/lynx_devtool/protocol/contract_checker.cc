@@ -4,6 +4,7 @@
 #include "devtool/lynx_devtool/protocol/contract_checker.h"
 
 #include <algorithm>
+#include <cmath>
 #include <set>
 #include <utility>
 
@@ -133,7 +134,8 @@ void Check(const Schema& schema, const Json::Value& value, bool strict,
                      (schema.HasType("null") && value.isNull()) ||
                      (schema.HasType("string") && value.isString()) ||
                      (schema.HasType("integer") && value.isIntegral()) ||
-                     (schema.HasType("number") && value.isNumeric()) ||
+                     (schema.HasType("number") && value.isNumeric() &&
+                      std::isfinite(value.asDouble())) ||
                      (schema.HasType("boolean") && value.isBool()) ||
                      (schema.HasType("object") && value.isObject()) ||
                      (schema.HasType("array") && value.isArray());

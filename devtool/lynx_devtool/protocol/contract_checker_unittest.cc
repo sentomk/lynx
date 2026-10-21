@@ -3,6 +3,7 @@
 // LICENSE file in the root directory of this source tree.
 #include "devtool/lynx_devtool/protocol/contract_checker.h"
 
+#include <limits>
 #include <thread>
 
 #include "third_party/googletest/googletest/include/gtest/gtest.h"
@@ -76,6 +77,28 @@ TEST_F(ContractCheckerTest, SharedPythonCases) {
     for (const auto& problem : test["problems"])
       expected.push_back(problem.asString());
     EXPECT_EQ(actual, expected);
+  }
+}
+TEST(ContractNumericTest, RejectsNonFiniteNumbersLikePython) {
+  std::vector<ContractViolation> violations;
+  auto checker = ContractChecker::Create(
+      [&](const auto& value) { violations.push_back(value); });
+  ASSERT_NE(checker, nullptr);
+  for (double value : {std::numeric_limits<double>::infinity(),
+                       -std::numeric_limits<double>::infinity(),
+                       std::numeric_limits<double>::quiet_NaN()}) {
+    violations.clear();
+    auto request = Request("Input.synthesizeTapGesture");
+    request["params"]["x"] = value;
+    request["params"]["y"] = 1;
+    checker->OnIncomingMessage(nullptr, request);
+    ASSERT_EQ(violations.size(), 1u);
+    EXPECT_EQ(violations[0].kind, Kind::kInvalidParams);
+    EXPECT_EQ(violations[0].problems,
+              std::vector<std::string>{"params.x: expected number"});
+    auto response = Parse(
+        R"({"id":1,"error":{"code":-32602,"message":"Invalid coordinate"}})");
+    checker->OnOutgoingMessage(nullptr, response);
   }
 }
 TEST_F(ContractCheckerTest, ValidResultAndFlush) {
