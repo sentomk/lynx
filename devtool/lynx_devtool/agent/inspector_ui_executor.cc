@@ -367,11 +367,15 @@ void InspectorUIExecutor::PageNavigate(
 void InspectorUIExecutor::UITree_Enable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"compressionThreshold", CDPParamType::kInteger, true},
-                       {"useCompression", CDPParamType::kBoolean, true}})) {
+  if (!CheckCDPParams(sender, message, "UITree.enable")) {
     return;
   }
+  if ((!message["params"]["compressionThreshold"].isNull() && !message["params"]["compressionThreshold"].isInt())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value params = message["params"];
   if (params.isMember("useCompression")) {
@@ -455,10 +459,15 @@ void InspectorUIExecutor::GetLynxUITree(
 void InspectorUIExecutor::GetUIInfoForNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"UINodeId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "UITree.getUIInfoForNode")) {
     return;
   }
+  if ((!message["params"]["UINodeId"].isNull() && !message["params"]["UINodeId"].isInt64())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   if (!uitree_enabled_) {
     sender->SendErrorResponse(message["id"].asInt64(), -32000,
@@ -490,12 +499,15 @@ void InspectorUIExecutor::GetUIInfoForNode(
 void InspectorUIExecutor::SetUIStyle(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"UINodeId", CDPParamType::kInteger},
-                       {"styleContent", CDPParamType::kString},
-                       {"styleName", CDPParamType::kString}})) {
+  if (!CheckCDPParams(sender, message, "UITree.setUIStyle")) {
     return;
   }
+  if ((!message["params"]["UINodeId"].isNull() && !message["params"]["UINodeId"].isInt64())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   if (!uitree_enabled_) {
     sender->SendErrorResponse(message["id"].asInt64(), -32000,
