@@ -31,6 +31,7 @@ unittest_set("devtool_agent_testset") {
     "../../lynx_devtool/native_module/native_module_record_manager_unittest.cc",
     "../../lynx_devtool/protocol/contract_invalid_params_unittest.cc",
     "contract_agent_test.h",
+    "cdp_unavailable_backend_unittest.cc",
     "devtool_mediator_unittest.cc",
     "record_payload_unittest.cc",
   ]

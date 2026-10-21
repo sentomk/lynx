@@ -203,6 +203,9 @@ void LynxGlobalDevToolMediator::RecordingEnd(
           std::move(send_complete));
       sender->SendOKResponse(message["id"].asInt64());
     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "ui_task_runner_ is unavailable");
   }
 }
 
@@ -247,6 +250,9 @@ void LynxGlobalDevToolMediator::ReplayEnd(
         sender->SendErrorResponse(id, "Replay doesn't enable");
       }
     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "default_task_runner_ is unavailable");
   }
 }
 
@@ -564,6 +570,9 @@ void LynxGlobalDevToolMediator::TracingStart(
         sender->SendErrorResponse(id, "Failed to start tracing");
       }
     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "default_task_runner_ is unavailable");
   }
 }
 
@@ -591,6 +600,9 @@ void LynxGlobalDevToolMediator::TracingEnd(
       //  controller->RemoveCompleteCallbacks(this->tracing_session_id_);
       this->tracing_session_id_ = -1;
     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "default_task_runner_ is unavailable");
   }
 }
 
@@ -615,6 +627,9 @@ void LynxGlobalDevToolMediator::SetStartupTracingConfig(
         sender->SendErrorResponse(id, "Set Startup Tracing config is null");
       }
     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "default_task_runner_ is unavailable");
   }
 }
 
@@ -638,6 +653,9 @@ void LynxGlobalDevToolMediator::GetStartupTracingConfig(
       response["id"] = message["id"].asInt64();
       sender->SendMessage("CDP", response);
     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "default_task_runner_ is unavailable");
   }
 }
 
@@ -673,6 +691,9 @@ void LynxGlobalDevToolMediator::GetStartupTracingFile(
         }
       }
     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "default_task_runner_ is unavailable");
   }
 }
 
@@ -702,6 +723,9 @@ void LynxGlobalDevToolMediator::TakeVMSnapshotByUrl(
         sender->SendErrorResponse(id, "Tracing is not started");
       }
     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "default_task_runner_ is unavailable");
   }
 }
 

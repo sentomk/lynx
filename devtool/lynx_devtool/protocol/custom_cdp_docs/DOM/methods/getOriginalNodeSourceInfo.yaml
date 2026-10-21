@@ -29,7 +29,7 @@ notes:
   - Dispatches through LynxDevToolMediator to InspectorTasmExecutor on the TASM thread.
   - Runtime-generated wrapper nodes can be identified by tag set to wrapper.
   - The response result is an empty object when no element is found for params.nodeId.
-  - If the mediator has no TASM task runner, the current handler does not send an explicit CDP response.
+  - If the mediator has no TASM task runner, the request fails with InternalError (-32603).
 examples:
   - title: Read source info for an element node
     request:

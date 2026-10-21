@@ -858,10 +858,18 @@ TEST_F(DevToolMediatorTest, GetRectToWindow) {
 }
 
 TEST_F(DevToolMediatorTest, LynxTransferData) {
-  Json::Value request = Json::Value(Json::ValueType::objectValue);
+  Json::Value request(Json::objectValue);
+  request["id"] = 1;
+  request["params"]["dataType"] = "template";
+  request["params"]["data"] = "fragment";
+  request["params"]["eof"] = true;
   devtool_mediator_->LynxTransferData(message_sender_, request);
   ui_thread_->Join();
-  EXPECT_EQ(devtool::MockReceiver::GetInstance().received_message_.second, "");
+  Json::Value response;
+  ASSERT_TRUE(Json::Reader().parse(
+      devtool::MockReceiver::GetInstance().received_message_.second, response));
+  EXPECT_EQ(response["id"], 1);
+  EXPECT_TRUE(response["result"].isObject());
 }
 
 TEST_F(DevToolMediatorTest, LynxGetViewLocationOnScreen) {

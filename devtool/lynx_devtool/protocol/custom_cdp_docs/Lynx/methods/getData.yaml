@@ -12,7 +12,7 @@ notes:
   - Dispatches through LynxDevToolMediator to InspectorTasmExecutor on the TASM thread.
   - The handler only calls the component data helper when params.nodeId resolves to a component element.
   - The current native component data helper returns an empty string.
-  - If the mediator has no TASM task runner, the current handler does not send an explicit CDP response.
+  - If the mediator has no TASM task runner, the request fails with InternalError (-32603).
 examples:
   - title: Read component data
     request:

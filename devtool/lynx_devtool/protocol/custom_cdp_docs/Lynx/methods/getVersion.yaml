@@ -12,7 +12,7 @@ notes:
   - The response result is a string value, not an object wrapper.
   - Android delegates to DevToolPlatformAndroidDelegate.getLynxVersion(). Darwin delegates to LynxDeviceInfoHelper.getLynxVersion().
   - The native implementation does not read request params.
-  - If the mediator has no DevTool task runner or the platform facade is unavailable, the current handler does not send an explicit CDP response.
+  - If the mediator has no DevTool task runner or the platform facade is unavailable, the request fails with InternalError (-32603).
 examples:
   - title: Read the Lynx version
     request:

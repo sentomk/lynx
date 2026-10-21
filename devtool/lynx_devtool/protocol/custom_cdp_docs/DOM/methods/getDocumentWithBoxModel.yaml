@@ -89,7 +89,7 @@ notes:
   - If the serialized root exceeds the native DOM compression threshold and compression succeeds, result.compress is true and result.root is a compressed base64 string.
   - If a node cannot produce a valid box model, that node's box_model field is null.
   - The native implementation does not read request params.
-  - If the mediator has no TASM task runner or the element root is unavailable, the current handler does not send an explicit CDP response.
+  - If the mediator has no TASM task runner or the element root is unavailable, the request fails with InternalError (-32603).
 examples:
   - title: Read the DOM tree with box models
     request:

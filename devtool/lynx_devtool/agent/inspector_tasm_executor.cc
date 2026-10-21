@@ -1371,19 +1371,27 @@ void InspectorTasmExecutor::GetDocument(
   response["id"] = message["id"].asInt64();
 
   auto devtool_mediator = devtool_mediator_wp_.lock();
-  CHECK_NULL_AND_LOG_RETURN(devtool_mediator, "devtool_mediator is null");
-  devtool_mediator->RunOnDevToolThread(
-      [sender, self = shared_from_this(), content, response]() mutable {
-        std::string root_str = content["root"].toStyledString();
-        if (self->dom_use_compression_ &&
-            root_str.size() >
-                static_cast<size_t>(self->dom_compression_threshold_)) {
-          InspectorUtil::CompressData("getDocument", root_str, content, "root");
-        }
-        response["result"] = content;
-        sender->SendMessage("CDP", response);
-      },
-      true);
+  if (!devtool_mediator) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_mediator is null");
+    return;
+  }
+  if (!devtool_mediator->RunOnDevToolThread(
+          [sender, self = shared_from_this(), content, response]() mutable {
+            std::string root_str = content["root"].toStyledString();
+            if (self->dom_use_compression_ &&
+                root_str.size() >
+                    static_cast<size_t>(self->dom_compression_threshold_)) {
+              InspectorUtil::CompressData("getDocument", root_str, content,
+                                          "root");
+            }
+            response["result"] = content;
+            sender->SendMessage("CDP", response);
+          },
+          true)) {
+    sender->SendErrorResponse(response["id"].asInt64(), -32603,
+                              "DevTool task runner is unavailable");
+  }
 }
 
 void InspectorTasmExecutor::DescribeNode(
@@ -1424,20 +1432,27 @@ void InspectorTasmExecutor::DescribeNode(
   content["node"] = ElementHelper::GetDocumentBodyFromNode(target, depth);
 
   auto devtool_mediator = devtool_mediator_wp_.lock();
-  CHECK_NULL_AND_LOG_RETURN(devtool_mediator, "devtool_mediator is null");
-  devtool_mediator->RunOnDevToolThread(
-      [sender, self = shared_from_this(), content, response]() mutable {
-        std::string node_str = content["node"].toStyledString();
-        if (self->dom_use_compression_ &&
-            node_str.size() >
-                static_cast<size_t>(self->dom_compression_threshold_)) {
-          InspectorUtil::CompressData("describeNode", node_str, content,
-                                      "node");
-        }
-        response["result"] = content;
-        sender->SendMessage("CDP", response);
-      },
-      true);
+  if (!devtool_mediator) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_mediator is null");
+    return;
+  }
+  if (!devtool_mediator->RunOnDevToolThread(
+          [sender, self = shared_from_this(), content, response]() mutable {
+            std::string node_str = content["node"].toStyledString();
+            if (self->dom_use_compression_ &&
+                node_str.size() >
+                    static_cast<size_t>(self->dom_compression_threshold_)) {
+              InspectorUtil::CompressData("describeNode", node_str, content,
+                                          "node");
+            }
+            response["result"] = content;
+            sender->SendMessage("CDP", response);
+          },
+          true)) {
+    sender->SendErrorResponse(response["id"].asInt64(), -32603,
+                              "DevTool task runner is unavailable");
+  }
 }
 
 void InspectorTasmExecutor::GetDocumentWithBoxModel(
@@ -1446,28 +1461,38 @@ void InspectorTasmExecutor::GetDocumentWithBoxModel(
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content = Json::Value(Json::ValueType::objectValue);
   tasm::Element* root = GetElementRoot();
-  CHECK_NULL_AND_LOG_RETURN(root, "root is null");
+  if (!root) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603, "root is null");
+    return;
+  }
 
   content["compress"] = false;
   response["id"] = message["id"].asInt64();
 
-  auto send_response = [sender, response, self = shared_from_this()](
+  auto send_response = [sender, message, response, self = shared_from_this()](
                            Json::Value content) mutable {
     auto devtool_mediator = self->devtool_mediator_wp_.lock();
-    CHECK_NULL_AND_LOG_RETURN(devtool_mediator, "devtool_mediator is null");
-    devtool_mediator->RunOnDevToolThread(
-        [sender, self, content = std::move(content), response]() mutable {
-          std::string root_str = content["root"].toStyledString();
-          if (self->dom_use_compression_ &&
-              root_str.size() >
-                  static_cast<size_t>(self->dom_compression_threshold_)) {
-            InspectorUtil::CompressData("getDocumentWithBoxModel", root_str,
-                                        content, "root");
-          }
-          response["result"] = content;
-          sender->SendMessage("CDP", response);
-        },
-        true);
+    if (!devtool_mediator) {
+      sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                                "devtool_mediator is null");
+      return;
+    }
+    if (!devtool_mediator->RunOnDevToolThread(
+            [sender, self, content = std::move(content), response]() mutable {
+              std::string root_str = content["root"].toStyledString();
+              if (self->dom_use_compression_ &&
+                  root_str.size() >
+                      static_cast<size_t>(self->dom_compression_threshold_)) {
+                InspectorUtil::CompressData("getDocumentWithBoxModel", root_str,
+                                            content, "root");
+              }
+              response["result"] = content;
+              sender->SendMessage("CDP", response);
+            },
+            true)) {
+      sender->SendErrorResponse(response["id"].asInt64(), -32603,
+                                "DevTool task runner is unavailable");
+    }
   };
 
   float layouts_unit_per_px = 1.0f;
@@ -1495,7 +1520,11 @@ void InspectorTasmExecutor::GetDocumentWithBoxModel(
   }
 
   auto devtool_mediator = devtool_mediator_wp_.lock();
-  CHECK_NULL_AND_LOG_RETURN(devtool_mediator, "devtool_mediator is null");
+  if (!devtool_mediator) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_mediator is null");
+    return;
+  }
   if (queries.empty()) {
     send_response(std::move(content));
     return;
@@ -1581,20 +1610,27 @@ void InspectorTasmExecutor::DOM_GetBoxModel(
   response["id"] = message["id"].asInt64();
 
   auto devtool_mediator = devtool_mediator_wp_.lock();
-  CHECK_NULL_AND_LOG_RETURN(devtool_mediator, "devtool_mediator is null");
+  if (!devtool_mediator) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_mediator is null");
+    return;
+  }
 
   auto send_response = [sender, response, self = shared_from_this(),
                         devtool_mediator](Json::Value content) mutable {
     if (content.empty()) {
       content = BuildBoxModelError();
     }
-    devtool_mediator->RunOnDevToolThread(
-        [sender, self, content = std::move(content), response]() mutable {
-          Json::Value result_response = response;
-          result_response["result"] = content;
-          sender->SendMessage("CDP", result_response);
-        },
-        true);
+    if (!devtool_mediator->RunOnDevToolThread(
+            [sender, self, content = std::move(content), response]() mutable {
+              Json::Value result_response = response;
+              result_response["result"] = content;
+              sender->SendMessage("CDP", result_response);
+            },
+            true)) {
+      sender->SendErrorResponse(response["id"].asInt64(), -32603,
+                                "DevTool task runner is unavailable");
+    }
   };
 
   if (ptr == nullptr) {
@@ -1712,7 +1748,11 @@ void InspectorTasmExecutor::SetAttributesAsText(
   }
 
   auto devtool_mediator = devtool_mediator_wp_.lock();
-  CHECK_NULL_AND_LOG_RETURN(devtool_mediator, "devtool_mediator is null");
+  if (!devtool_mediator) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_mediator is null");
+    return;
+  }
   for (const Json::Value& msg : msg_v) {
     devtool_mediator->SendCDPEvent(msg);
   }
@@ -2028,7 +2068,11 @@ void InspectorTasmExecutor::ScrollIntoViewIfNeeded(
     return;
   }
   auto devtool_mediator = devtool_mediator_wp_.lock();
-  CHECK_NULL_AND_LOG_RETURN(devtool_mediator, "devtool_mediator is null");
+  if (!devtool_mediator) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_mediator is null");
+    return;
+  }
 
   devtool_mediator->ScrollIntoView(ElementInspector::NodeId(current_element));
 
@@ -2078,7 +2122,11 @@ void InspectorTasmExecutor::DOM_Focus(
   }
 
   auto devtool_mediator = devtool_mediator_wp_.lock();
-  CHECK_NULL_AND_LOG_RETURN(devtool_mediator, "devtool_mediator is null");
+  if (!devtool_mediator) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_mediator is null");
+    return;
+  }
 
   devtool_mediator->Focus(ElementInspector::NodeId(current_element));
 
@@ -2203,7 +2251,11 @@ void InspectorTasmExecutor::DOMEnableDomTree(
     ignore_cache = params["ignoreCache"].asBool();
   }
   auto devtool_mediator = devtool_mediator_wp_.lock();
-  CHECK_NULL_AND_LOG_RETURN(devtool_mediator, "devtool_mediator is null");
+  if (!devtool_mediator) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_mediator is null");
+    return;
+  }
   devtool_mediator->PageReload(ignore_cache);
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -2228,7 +2280,11 @@ void InspectorTasmExecutor::DOMDisableDomTree(
     ignore_cache = params["ignoreCache"].asBool();
   }
   auto devtool_mediator = devtool_mediator_wp_.lock();
-  CHECK_NULL_AND_LOG_RETURN(devtool_mediator, "devtool_mediator is null");
+  if (!devtool_mediator) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_mediator is null");
+    return;
+  }
   devtool_mediator->PageReload(ignore_cache);
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -2478,13 +2534,17 @@ void InspectorTasmExecutor::GetComputedStyleForNode(
                   ApplyBoxModelToComputedStyle(dict, box_info,
                                                layouts_unit_per_px);
                   content["computedStyle"] = ConvertComputedStyleToJson(dict);
-                  devtool_mediator->RunOnDevToolThread(
-                      [sender, self = std::move(self), response,
-                       content = std::move(content)]() mutable {
-                        response["result"] = content;
-                        sender->SendMessage("CDP", response);
-                      },
-                      true);
+                  if (!devtool_mediator->RunOnDevToolThread(
+                          [sender, self = std::move(self), response,
+                           content = std::move(content)]() mutable {
+                            response["result"] = content;
+                            sender->SendMessage("CDP", response);
+                          },
+                          true)) {
+                    sender->SendErrorResponse(
+                        response["id"].asInt64(), -32603,
+                        "DevTool task runner is unavailable");
+                  }
                 });
             return;
           }
@@ -2653,7 +2713,11 @@ void InspectorTasmExecutor::CreateStyleSheet(
   }
 
   auto devtool_mediator = devtool_mediator_wp_.lock();
-  CHECK_NULL_AND_LOG_RETURN(devtool_mediator, "devtool_mediator is null");
+  if (!devtool_mediator) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_mediator is null");
+    return;
+  }
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -2767,6 +2831,7 @@ void InspectorTasmExecutor::UpdateRuleUsageTracking(
       css_used_selector_.insert(selector.asString());
     }
   }
+  sender->SendOKResponse(message["id"].asInt64());
 }
 
 void InspectorTasmExecutor::StopRuleUsageTracking(
@@ -2819,7 +2884,10 @@ void InspectorTasmExecutor::GetMediaQueries(
   std::unordered_map<std::string, int> media_indices;
 
   Element* root = element_root_;
-  CHECK_NULL_AND_LOG_RETURN(root, "root is null");
+  if (!root) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603, "root is null");
+    return;
+  }
   std::queue<Element*> inspect_node_queue;
   inspect_node_queue.push(root);
   while (!inspect_node_queue.empty()) {

@@ -66,8 +66,11 @@ void InspectorDefaultExecutor::LynxGetVersion(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
   Json::Value response(Json::ValueType::objectValue);
-  CHECK_NULL_AND_LOG_RETURN(devtool_platform_facade_,
-                            "devtool_platform_facade_ is null");
+  if (!devtool_platform_facade_) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_platform_facade_ is null");
+    return;
+  }
   response["result"] = devtool_platform_facade_->GetLynxVersion();
   response["id"] = message["id"].asInt64();
   sender->SendMessage("CDP", response);

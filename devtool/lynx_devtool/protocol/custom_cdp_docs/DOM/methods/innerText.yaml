@@ -22,7 +22,7 @@ notes:
   - The handler only scans attached elements whose localName is text.
   - For matching text elements, the handler walks direct raw-text children and reads their text attributes.
   - The method does not concatenate text; callers receive one rawTextValues item per raw-text child that contributes text.
-  - If the mediator has no TASM task runner, the current handler does not send an explicit CDP response.
+  - If the mediator has no TASM task runner, the request fails with InternalError (-32603).
 examples:
   - title: Read raw text children
     request:

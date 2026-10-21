@@ -89,11 +89,18 @@ void InspectorUIExecutor::GetNodeForLocation(
     return;
   }
 
-  CHECK_NULL_AND_LOG_RETURN(shell_, "GetNodeForLocation: shell_ is null");
+  if (!shell_) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "GetNodeForLocation: shell_ is null");
+    return;
+  }
   const std::unique_ptr<tasm::ElementManager>& element_manager =
       shell_->GetTasm()->page_proxy()->element_manager();
-  CHECK_NULL_AND_LOG_RETURN(element_manager,
-                            "GetNodeForLocation: element_manager is null");
+  if (!element_manager) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "GetNodeForLocation: element_manager is null");
+    return;
+  }
   float layouts_unit_per_px =
       element_manager->GetLynxEnvConfig().LayoutsUnitPerPx();
   Json::Value response(Json::ValueType::objectValue);
@@ -110,8 +117,11 @@ void InspectorUIExecutor::GetNodeForLocation(
           lynx::devtool::DevToolStatus::kDevToolStatusKeyScreenShotMode,
           lynx::devtool::DevToolStatus::SCREENSHOT_MODE_FULLSCREEN);
 
-  CHECK_NULL_AND_LOG_RETURN(devtool_platform_facade_,
-                            "devtool_platform_facade_ is null");
+  if (!devtool_platform_facade_) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_platform_facade_ is null");
+    return;
+  }
 
   int node_id =
       devtool_platform_facade_->FindNodeIdForLocation(x, y, screen_shot_mode);
@@ -140,17 +150,6 @@ void InspectorUIExecutor::PageReload(bool ignore_cache,
                                      const std::string& reload_url,
                                      bool from_template_fragments,
                                      int32_t template_size) {
-  if (!CheckCDPParams(sender, message,
-                      {{"ignoreCache", CDPParamType::kBoolean, true},
-                       {"loaderId", CDPParamType::kString, true},
-                       {"scriptToEvaluateOnLoad", CDPParamType::kString, true},
-                       {"pageData", CDPParamType::kString, true},
-                       {"fromPageDataFragments", CDPParamType::kBoolean, true},
-                       {"pageDataLength", CDPParamType::kInteger, true},
-                       {"url", CDPParamType::kString, true}})) {
-    return;
-  }
-
   CHECK_NULL_AND_LOG_RETURN(devtool_platform_facade_,
                             "devtool_platform_facade_ is null");
   devtool_platform_facade_->PageReload(ignore_cache, template_binary,
@@ -195,8 +194,11 @@ void InspectorUIExecutor::StartScreencast(
           lynx::devtool::DevToolStatus::kDevToolStatusKeyScreenShotMode, mode);
     }
   }
-  CHECK_NULL_AND_LOG_RETURN(devtool_platform_facade_,
-                            "devtool_platform_facade_ is null");
+  if (!devtool_platform_facade_) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_platform_facade_ is null");
+    return;
+  }
   devtool_platform_facade_->StartScreenCast(std::move(screen_request));
 
   response["result"] = content;
@@ -209,8 +211,11 @@ void InspectorUIExecutor::StopScreencast(
     const Json::Value& message) {
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
-  CHECK_NULL_AND_LOG_RETURN(devtool_platform_facade_,
-                            "devtool_platform_facade_ is null");
+  if (!devtool_platform_facade_) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_platform_facade_ is null");
+    return;
+  }
   devtool_platform_facade_->StopScreenCast();
   response["result"] = content;
   response["id"] = message["id"].asInt64();
@@ -298,6 +303,17 @@ void InspectorUIExecutor::PageGetResourceTree(
 void InspectorUIExecutor::PageReload(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"ignoreCache", CDPParamType::kBoolean, true},
+                       {"loaderId", CDPParamType::kString, true},
+                       {"scriptToEvaluateOnLoad", CDPParamType::kString, true},
+                       {"pageData", CDPParamType::kString, true},
+                       {"fromPageDataFragments", CDPParamType::kBoolean, true},
+                       {"pageDataLength", CDPParamType::kInteger, true},
+                       {"url", CDPParamType::kString, true}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -390,11 +406,18 @@ void InspectorUIExecutor::UITree_Disable(
 void InspectorUIExecutor::GetLynxUITree(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!uitree_enabled_) return;
+  if (!uitree_enabled_) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32000,
+                              "UITree is not enabled");
+    return;
+  }
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content = Json::Value(Json::ValueType::objectValue);
-  CHECK_NULL_AND_LOG_RETURN(devtool_platform_facade_,
-                            "devtool_platform_facade_ is null");
+  if (!devtool_platform_facade_) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_platform_facade_ is null");
+    return;
+  }
   std::string tree_str = devtool_platform_facade_->GetLynxUITree();
 
   Json::Value tree;
@@ -409,20 +432,27 @@ void InspectorUIExecutor::GetLynxUITree(
   response["id"] = message["id"].asInt64();
 
   auto devtool_mediator = devtool_mediator_wp_.lock();
-  CHECK_NULL_AND_LOG_RETURN(devtool_mediator, "devtool_mediator is null");
-  devtool_mediator->RunOnDevToolThread(
-      [sender, self = shared_from_this(), content, response]() mutable {
-        std::string root_str = content["root"].toStyledString();
-        if (self->uitree_use_compression_ &&
-            root_str.size() >
-                static_cast<size_t>(self->uitree_compression_threshold_)) {
-          InspectorUtil::CompressData("getLynxUITree", root_str, content,
-                                      "root");
-        }
-        response["result"] = content;
-        sender->SendMessage("CDP", response);
-      },
-      true);
+  if (!devtool_mediator) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_mediator is null");
+    return;
+  }
+  if (!devtool_mediator->RunOnDevToolThread(
+          [sender, self = shared_from_this(), content, response]() mutable {
+            std::string root_str = content["root"].toStyledString();
+            if (self->uitree_use_compression_ &&
+                root_str.size() >
+                    static_cast<size_t>(self->uitree_compression_threshold_)) {
+              InspectorUtil::CompressData("getLynxUITree", root_str, content,
+                                          "root");
+            }
+            response["result"] = content;
+            sender->SendMessage("CDP", response);
+          },
+          true)) {
+    sender->SendErrorResponse(response["id"].asInt64(), -32603,
+                              "DevTool task runner is unavailable");
+  }
 }
 
 void InspectorUIExecutor::GetUIInfoForNode(
@@ -433,13 +463,20 @@ void InspectorUIExecutor::GetUIInfoForNode(
     return;
   }
 
-  if (!uitree_enabled_) return;
+  if (!uitree_enabled_) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32000,
+                              "UITree is not enabled");
+    return;
+  }
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content = Json::Value(Json::ValueType::objectValue);
   Json::Value params = message["params"];
   int id = static_cast<int>(params["UINodeId"].asInt64());
-  CHECK_NULL_AND_LOG_RETURN(devtool_platform_facade_,
-                            "devtool_platform_facade_ is null");
+  if (!devtool_platform_facade_) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_platform_facade_ is null");
+    return;
+  }
   std::string info_str = devtool_platform_facade_->GetUINodeInfo(id);
 
   Json::Reader reader;
@@ -463,15 +500,22 @@ void InspectorUIExecutor::SetUIStyle(
     return;
   }
 
-  if (!uitree_enabled_) return;
+  if (!uitree_enabled_) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32000,
+                              "UITree is not enabled");
+    return;
+  }
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
   int id = static_cast<int>(params["UINodeId"].asInt64());
   std::string style_name = params["styleName"].asString();
   std::string style_content = params["styleContent"].asString();
-  CHECK_NULL_AND_LOG_RETURN(devtool_platform_facade_,
-                            "devtool_platform_facade_ is null");
+  if (!devtool_platform_facade_) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_platform_facade_ is null");
+    return;
+  }
   int ret = devtool_platform_facade_->SetUIStyle(id, style_name, style_content);
 
   if (ret == -1) {
@@ -499,8 +543,11 @@ void InspectorUIExecutor::ScreencastFrameAck(
   response["result"] = content;
   response["id"] = message["id"].asInt64();
 
-  CHECK_NULL_AND_LOG_RETURN(devtool_platform_facade_,
-                            "devtool_platform_facade_ is null");
+  if (!devtool_platform_facade_) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_platform_facade_ is null");
+    return;
+  }
   devtool_platform_facade_->OnAckReceived();
 
   sender->SendMessage("CDP", response);
@@ -509,11 +556,13 @@ void InspectorUIExecutor::ScreencastFrameAck(
 void InspectorUIExecutor::GetScreenshot(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  CHECK_NULL_AND_LOG_RETURN(devtool_platform_facade_,
-                            "devtool_platform_facade_ is null");
+  if (!devtool_platform_facade_) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_platform_facade_ is null");
+    return;
+  }
   devtool_platform_facade_->GetLynxScreenShot();
-  Json::Value response(Json::ValueType::objectValue);
-  Json::Value content = Json::Value(Json::ValueType::objectValue);
+  sender->SendOKResponse(message["id"].asInt64());
 }
 
 void InspectorUIExecutor::LynxSetLogLevel(
@@ -527,8 +576,11 @@ void InspectorUIExecutor::LynxGetRectToWindow(
     const Json::Value& message) {
   Json::Value response(Json::ValueType::objectValue);
   Json::Value rect(Json::ValueType::objectValue);
-  CHECK_NULL_AND_LOG_RETURN(devtool_platform_facade_,
-                            "devtool_platform_facade_ is null");
+  if (!devtool_platform_facade_) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_platform_facade_ is null");
+    return;
+  }
   auto dict = devtool_platform_facade_->GetRectToWindow();
   if (dict.size() < 4) {
     sender->SendErrorResponse(message["id"].asInt64(),
@@ -555,28 +607,29 @@ void InspectorUIExecutor::LynxTransferData(
   }
 
   Json::Value params = message["params"];
-  if (params.empty()) {
+  if (params["dataType"] != "template") {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid dataType: expected template");
     return;
   }
-
-  Json::Value data_type = params["dataType"];
-  if (!data_type.empty() && !data_type.asString().compare("template")) {
-    Json::Value data = params["data"];
-    Json::Value eof = params["eof"];
-    if (data.isString() && eof.isBool()) {
-      CHECK_NULL_AND_LOG_RETURN(devtool_platform_facade_,
-                                "devtool_platform_facade_ is null");
-      devtool_platform_facade_->OnReceiveTemplateFragment(data.asString(),
-                                                          eof.asBool());
-    }
+  if (!devtool_platform_facade_) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_platform_facade_ is null");
+    return;
   }
+  devtool_platform_facade_->OnReceiveTemplateFragment(params["data"].asString(),
+                                                      params["eof"].asBool());
+  sender->SendOKResponse(message["id"].asInt64());
 }
 
 void InspectorUIExecutor::LynxGetViewLocationOnScreen(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  CHECK_NULL_AND_LOG_RETURN(devtool_platform_facade_,
-                            "devtool_platform_facade_ is null");
+  if (!devtool_platform_facade_) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "devtool_platform_facade_ is null");
+    return;
+  }
   std::vector<int32_t> res =
       devtool_platform_facade_->GetViewLocationOnScreen();
   Json::Value response(Json::ValueType::objectValue);
@@ -679,8 +732,11 @@ void InspectorUIExecutor::LynxSendEventToVM(
     Json::Value event_name = params["event"];
     Json::Value data = params["data"];
     if (vm_type.isString() && event_name.isString()) {
-      CHECK_NULL_AND_LOG_RETURN(devtool_platform_facade_,
-                                "devtool_platform_facade_ is null");
+      if (!devtool_platform_facade_) {
+        sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                                  "devtool_platform_facade_ is null");
+        return;
+      }
       devtool_platform_facade_->SendEventToVM(
           vm_type.asString(), event_name.asString(),
           data.isString() ? data.asString() : "");

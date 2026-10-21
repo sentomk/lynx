@@ -6,9 +6,9 @@ notes:
   - Dispatches through LynxDevToolMediator to InspectorUIExecutor on the UI thread.
   - The handler calls DevToolPlatformFacade::GetLynxScreenShot().
   - Android and Darwin delegate this to their sendCardPreview platform hook.
-  - The current native handler does not send a CDP response after invoking the platform hook.
+  - The request returns an empty result after invoking the platform hook. Screenshot data is delivered separately by the screenshotCaptured event.
   - The native implementation does not read request params.
-  - If the mediator has no UI task runner or the platform facade is unavailable, the current handler does not send an explicit CDP response.
+  - If the mediator has no UI task runner or the platform facade is unavailable, the request fails with InternalError (-32603).
 examples:
   - title: Request a Lynx screenshot
     request:

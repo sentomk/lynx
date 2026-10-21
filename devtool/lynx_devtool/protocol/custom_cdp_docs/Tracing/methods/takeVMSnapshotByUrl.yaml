@@ -13,7 +13,7 @@ notes:
   - Returns an empty OK response when tracing session is active and params.url and params.type are present.
   - Returns a CDP error with message 'Argument error' when url or type parameter is missing.
   - Returns a CDP error with message 'Tracing is not started' when tracing session is not active.
-  - If the global mediator has no default task runner, the current handler does not send an explicit CDP response.
+  - If the global mediator has no default task runner, the request fails with InternalError (-32603).
 examples:
   - title: Take snapshot of page with given URL
     request:

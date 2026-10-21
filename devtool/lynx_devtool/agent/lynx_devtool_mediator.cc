@@ -262,319 +262,413 @@ void LynxDevToolMediator::SetTag(const std::string& tag) {
 void LynxDevToolMediator::QuerySelector(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->QuerySelector(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetAttributes(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->GetAttributes(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::InnerText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->InnerText(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::QuerySelectorAll(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->QuerySelectorAll(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::DOM_Enable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->DOM_Enable(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::DOM_Disable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->DOM_Disable(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetDocument(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->GetDocument(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::DescribeNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->DescribeNode(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetDocumentWithBoxModel(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_, [element_executor = element_executor_,
                                         sender, message]() {
       element_executor->GetDocumentWithBoxModel(sender, message);
     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::RequestChildNodes(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->RequestChildNodes(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::DOM_GetBoxModel(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->DOM_GetBoxModel(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::SetAttributesAsText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->SetAttributesAsText(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::MarkUndoableState(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->MarkUndoableState(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::PushNodesByBackendIdsToFrontend(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_, [element_executor = element_executor_,
                                         sender, message]() {
       element_executor->PushNodesByBackendIdsToFrontend(sender, message);
     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::RemoveNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->RemoveNode(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::MoveTo(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->MoveTo(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::CopyTo(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->CopyTo(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetOuterHTML(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->GetOuterHTML(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::SetOuterHTML(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->SetOuterHTML(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::SetInspectedNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->SetInspectedNode(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::PerformSearch(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->PerformSearch(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetSearchResults(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->GetSearchResults(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::DiscardSearchResults(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->DiscardSearchResults(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetOriginalNodeIndex(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->GetOriginalNodeIndex(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetOriginalNodeSourceInfo(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_, [element_executor = element_executor_,
                                         sender, message]() {
       element_executor->GetOriginalNodeSourceInfo(sender, message);
     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetNodeForLocation(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (ui_task_runner_) {
+  if (ui_task_runner_ && ui_executor_) {
     RunOnTaskRunner(ui_task_runner_,
                     [ui_executor = ui_executor_, sender, message]() {
                       ui_executor->GetNodeForLocation(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "ui_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::ScrollIntoViewIfNeeded(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnTASMThread([sender, message, executor = element_executor_] {
-    executor->ScrollIntoViewIfNeeded(sender, message);
-  });
+  if (!element_executor_ ||
+      !RunOnTASMThread([sender, message, executor = element_executor_] {
+        executor->ScrollIntoViewIfNeeded(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::DOM_Focus(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnTASMThread([sender, message, executor = element_executor_] {
-    executor->DOM_Focus(sender, message);
-  });
+  if (!element_executor_ ||
+      !RunOnTASMThread([sender, message, executor = element_executor_] {
+        executor->DOM_Focus(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::DOMEnableDomTree(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnTASMThread([sender, message, executor = element_executor_] {
-    executor->DOMEnableDomTree(sender, message);
-  });
+  if (!element_executor_ ||
+      !RunOnTASMThread([sender, message, executor = element_executor_] {
+        executor->DOMEnableDomTree(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::DOMDisableDomTree(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnTASMThread([sender, message, executor = element_executor_] {
-    executor->DOMDisableDomTree(sender, message);
-  });
+  if (!element_executor_ ||
+      !RunOnTASMThread([sender, message, executor = element_executor_] {
+        executor->DOMDisableDomTree(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::ScrollIntoView(int node_id) {
@@ -598,217 +692,277 @@ void LynxDevToolMediator::PageReload(bool ignore_cache) {
 void LynxDevToolMediator::CSS_Enable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->CSS_Enable(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::CSS_Disable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->CSS_Disable(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetMatchedStylesForNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_, [element_executor = element_executor_,
                                         sender, message]() {
       element_executor->GetMatchedStylesForNode(sender, message);
     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetLayersForNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->GetLayersForNode(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetComputedStyleForNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_, [element_executor = element_executor_,
                                         sender, message]() {
       element_executor->GetComputedStyleForNode(sender, message);
     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetInlineStylesForNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->GetInlineStylesForNode(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::SetStyleTexts(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->SetStyleTexts(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetStyleSheetText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->GetStyleSheetText(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetBackgroundColors(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->GetBackgroundColors(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::SetStyleSheetText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->SetStyleSheetText(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::CreateStyleSheet(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->CreateStyleSheet(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::AddRule(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->AddRule(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::StartRuleUsageTracking(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->StartRuleUsageTracking(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 void LynxDevToolMediator::UpdateRuleUsageTracking(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_, [element_executor = element_executor_,
                                         sender, message]() {
       element_executor->UpdateRuleUsageTracking(sender, message);
     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::StopRuleUsageTracking(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->StopRuleUsageTracking(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetMediaQueries(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->GetMediaQueries(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::SetMediaText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->SetMediaText(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::SetSupportsText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message]() {
                       element_executor->SetSupportsText(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::HighlightNode(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_, [element_executor = element_executor_,
                                         responder, params]() {
       element_executor->HighlightNode(responder, params);
     });
+  } else {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "Overlay backend is unavailable");
   }
 }
 
 void LynxDevToolMediator::HideHighlight(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_, [element_executor = element_executor_,
                                         responder, params]() {
       element_executor->HideHighlight(responder, params);
     });
+  } else {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "Overlay backend is unavailable");
   }
 }
 
@@ -886,182 +1040,231 @@ bool LynxDevToolMediator::RunOnDevToolThread(lynx::base::closure&& closure,
 void LynxDevToolMediator::StartScreencast(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (ui_task_runner_) {
+  if (ui_task_runner_ && ui_executor_) {
     RunOnTaskRunner(ui_task_runner_,
                     [ui_executor = ui_executor_, sender, message]() {
                       ui_executor->StartScreencast(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "ui_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::StopScreencast(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (ui_task_runner_) {
+  if (ui_task_runner_ && ui_executor_) {
     RunOnTaskRunner(ui_task_runner_,
                     [ui_executor = ui_executor_, sender, message]() {
                       ui_executor->StopScreencast(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "ui_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::ScreencastFrameAck(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (ui_task_runner_) {
+  if (ui_task_runner_ && ui_executor_) {
     RunOnTaskRunner(ui_task_runner_,
                     [ui_executor = ui_executor_, sender, message] {
                       ui_executor->ScreencastFrameAck(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "ui_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::PageEnable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (ui_task_runner_) {
+  if (ui_task_runner_ && ui_executor_) {
     RunOnTaskRunner(ui_task_runner_,
                     [ui_executor = ui_executor_, sender, message] {
                       ui_executor->PageEnable(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "ui_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::PageCanEmulate(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (ui_task_runner_) {
+  if (ui_task_runner_ && ui_executor_) {
     RunOnTaskRunner(ui_task_runner_,
                     [ui_executor = ui_executor_, sender, message] {
                       ui_executor->PageCanEmulate(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "ui_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::PageCanScreencast(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (ui_task_runner_) {
+  if (ui_task_runner_ && ui_executor_) {
     RunOnTaskRunner(ui_task_runner_,
                     [ui_executor = ui_executor_, sender, message] {
                       ui_executor->PageCanScreencast(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "ui_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::PageGetResourceContent(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [element_executor = element_executor_, sender, message] {
                       element_executor->PageGetResourceContent(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "tasm_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::PageGetResourceTree(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (ui_task_runner_) {
+  if (ui_task_runner_ && ui_executor_) {
     RunOnTaskRunner(ui_task_runner_,
                     [ui_executor = ui_executor_, sender, message] {
                       ui_executor->PageGetResourceTree(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "ui_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::PageReload(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (ui_task_runner_) {
+  if (ui_task_runner_ && ui_executor_) {
     RunOnTaskRunner(ui_task_runner_,
                     [ui_executor = ui_executor_, sender, message] {
                       ui_executor->PageReload(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "ui_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::PageNavigate(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (ui_task_runner_) {
+  if (ui_task_runner_ && ui_executor_) {
     RunOnTaskRunner(ui_task_runner_,
                     [ui_executor = ui_executor_, sender, message] {
                       ui_executor->PageNavigate(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "ui_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetScreenshot(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (ui_task_runner_) {
+  if (ui_task_runner_ && ui_executor_) {
     RunOnTaskRunner(ui_task_runner_,
                     [ui_executor = ui_executor_, sender, message] {
                       ui_executor->GetScreenshot(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "ui_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::UITree_Enable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (ui_task_runner_) {
+  if (ui_task_runner_ && ui_executor_) {
     RunOnTaskRunner(ui_task_runner_,
                     [ui_executor = ui_executor_, sender, message] {
                       ui_executor->UITree_Enable(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "ui_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::UITree_Disable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (ui_task_runner_) {
+  if (ui_task_runner_ && ui_executor_) {
     RunOnTaskRunner(ui_task_runner_,
                     [ui_executor = ui_executor_, sender, message] {
                       ui_executor->UITree_Disable(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "ui_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetLynxUITree(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (ui_task_runner_) {
+  if (ui_task_runner_ && ui_executor_) {
     RunOnTaskRunner(ui_task_runner_,
                     [ui_executor = ui_executor_, sender, message] {
                       ui_executor->GetLynxUITree(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "ui_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GetUIInfoForNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (ui_task_runner_) {
+  if (ui_task_runner_ && ui_executor_) {
     RunOnTaskRunner(ui_task_runner_,
                     [ui_executor = ui_executor_, sender, message] {
                       ui_executor->GetUIInfoForNode(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "ui_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::SetUIStyle(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (ui_task_runner_) {
+  if (ui_task_runner_ && ui_executor_) {
     RunOnTaskRunner(ui_task_runner_,
                     [ui_executor = ui_executor_, sender, message] {
                       ui_executor->SetUIStyle(sender, message);
                     });
+  } else {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "ui_task_runner_ is unavailable");
   }
 }
 
 void LynxDevToolMediator::GlobalPropsEnable(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (!RunOnTASMThread([executor = element_executor_, responder, params] {
+  if (!element_executor_ ||
+      !RunOnTASMThread([executor = element_executor_, responder, params] {
         executor->GlobalPropsEnable(responder, params);
       })) {
     responder->SendError(CDPErrorCode::ServerError,
@@ -1071,7 +1274,8 @@ void LynxDevToolMediator::GlobalPropsEnable(
 
 void LynxDevToolMediator::GlobalPropsDisable(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (!RunOnTASMThread([executor = element_executor_, responder, params] {
+  if (!element_executor_ ||
+      !RunOnTASMThread([executor = element_executor_, responder, params] {
         executor->GlobalPropsDisable(responder, params);
       })) {
     responder->SendError(CDPErrorCode::ServerError,
@@ -1081,7 +1285,8 @@ void LynxDevToolMediator::GlobalPropsDisable(
 
 void LynxDevToolMediator::GlobalPropsGet(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (!RunOnTASMThread([executor = element_executor_, responder, params] {
+  if (!element_executor_ ||
+      !RunOnTASMThread([executor = element_executor_, responder, params] {
         executor->GlobalPropsGet(responder, params);
       })) {
     responder->SendError(CDPErrorCode::ServerError,
@@ -1091,7 +1296,8 @@ void LynxDevToolMediator::GlobalPropsGet(
 
 void LynxDevToolMediator::GlobalPropsReplace(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (!RunOnTASMThread([executor = element_executor_, responder, params] {
+  if (!element_executor_ ||
+      !RunOnTASMThread([executor = element_executor_, responder, params] {
         executor->GlobalPropsReplace(responder, params);
       })) {
     responder->SendError(CDPErrorCode::ServerError,
@@ -1109,85 +1315,103 @@ void LynxDevToolMediator::GlobalPropsChanged() {
 
 void LynxDevToolMediator::WhiteBoardEnable(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [executor = element_executor_, responder, params] {
                       executor->WhiteBoardEnable(responder, params);
                     });
-  } else if (js_task_runner_) {
+  } else if (js_task_runner_ && js_debugger_) {
     RunOnJSThread([js_debugger = js_debugger_, responder, params] {
       js_debugger->WhiteBoardEnable(responder, params);
     });
+  } else {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "WhiteBoard backend is unavailable");
   }
 }
 
 void LynxDevToolMediator::WhiteBoardDisable(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [executor = element_executor_, responder, params] {
                       executor->WhiteBoardDisable(responder, params);
                     });
-  } else if (js_task_runner_) {
+  } else if (js_task_runner_ && js_debugger_) {
     RunOnJSThread([js_debugger = js_debugger_, responder, params] {
       js_debugger->WhiteBoardDisable(responder, params);
     });
+  } else {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "WhiteBoard backend is unavailable");
   }
 }
 
 void LynxDevToolMediator::WhiteBoardSetSharedData(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [executor = element_executor_, responder, params] {
                       executor->WhiteBoardSetSharedData(responder, params);
                     });
-  } else if (js_task_runner_) {
+  } else if (js_task_runner_ && js_debugger_) {
     RunOnJSThread([js_debugger = js_debugger_, responder, params] {
       js_debugger->WhiteBoardSetSharedData(responder, params);
     });
+  } else {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "WhiteBoard backend is unavailable");
   }
 }
 
 void LynxDevToolMediator::WhiteBoardGetSharedData(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [executor = element_executor_, responder, params] {
                       executor->WhiteBoardGetSharedData(responder, params);
                     });
-  } else if (js_task_runner_) {
+  } else if (js_task_runner_ && js_debugger_) {
     RunOnJSThread([js_debugger = js_debugger_, responder, params] {
       js_debugger->WhiteBoardGetSharedData(responder, params);
     });
+  } else {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "WhiteBoard backend is unavailable");
   }
 }
 
 void LynxDevToolMediator::WhiteBoardRemoveSharedData(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [executor = element_executor_, responder, params] {
                       executor->WhiteBoardRemoveSharedData(responder, params);
                     });
-  } else if (js_task_runner_) {
+  } else if (js_task_runner_ && js_debugger_) {
     RunOnJSThread([js_debugger = js_debugger_, responder, params] {
       js_debugger->WhiteBoardRemoveSharedData(responder, params);
     });
+  } else {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "WhiteBoard backend is unavailable");
   }
 }
 
 void LynxDevToolMediator::WhiteBoardClear(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  if (tasm_task_runner_) {
+  if (tasm_task_runner_ && element_executor_) {
     RunOnTaskRunner(tasm_task_runner_,
                     [executor = element_executor_, responder, params] {
                       executor->WhiteBoardClear(responder, params);
                     });
-  } else if (js_task_runner_) {
+  } else if (js_task_runner_ && js_debugger_) {
     RunOnJSThread([js_debugger = js_debugger_, responder, params] {
       js_debugger->WhiteBoardClear(responder, params);
     });
+  } else {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "WhiteBoard backend is unavailable");
   }
 }
 
@@ -1230,99 +1454,151 @@ void LynxDevToolMediator::RemoveCDPEventListener(const std::string& name) {
 
 void LynxDevToolMediator::EmulateTouchFromMouseEvent(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnUIThread([responder, params, executor = ui_executor_] {
-    executor->EmulateTouchFromMouseEvent(responder, params);
-  });
+  if (!ui_executor_ ||
+      !RunOnUIThread([responder, params, executor = ui_executor_] {
+        executor->EmulateTouchFromMouseEvent(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::DispatchMouseEvent(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnUIThread([responder, params, executor = ui_executor_] {
-    executor->DispatchMouseEvent(responder, params);
-  });
+  if (!ui_executor_ ||
+      !RunOnUIThread([responder, params, executor = ui_executor_] {
+        executor->DispatchMouseEvent(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::InsertText(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnUIThread([responder, params, executor = ui_executor_] {
-    executor->InsertText(responder, params);
-  });
+  if (!ui_executor_ ||
+      !RunOnUIThread([responder, params, executor = ui_executor_] {
+        executor->InsertText(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::SynthesizeTapGesture(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnUIThread([responder, params, executor = ui_executor_] {
-    executor->SynthesizeTapGesture(responder, params);
-  });
+  if (!ui_executor_ ||
+      !RunOnUIThread([responder, params, executor = ui_executor_] {
+        executor->SynthesizeTapGesture(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::InspectorEnable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnDevToolThread([sender, message, executor = devtool_executor_] {
-    executor->InspectorEnable(sender, message);
-  });
+  if (!devtool_executor_ ||
+      !RunOnDevToolThread([sender, message, executor = devtool_executor_] {
+        executor->InspectorEnable(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::InspectorDetached(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnDevToolThread([sender, message, executor = devtool_executor_] {
-    executor->InspectorDetached(sender, message);
-  });
+  if (!devtool_executor_ ||
+      !RunOnDevToolThread([sender, message, executor = devtool_executor_] {
+        executor->InspectorDetached(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::PerformanceEnable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnUIThread([sender, message, executor = ui_executor_] {
-    executor->PerformanceEnable(sender, message);
-  });
+  if (!ui_executor_ ||
+      !RunOnUIThread([sender, message, executor = ui_executor_] {
+        executor->PerformanceEnable(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::PerformanceDisable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnUIThread([sender, message, executor = ui_executor_] {
-    executor->PerformanceDisable(sender, message);
-  });
+  if (!ui_executor_ ||
+      !RunOnUIThread([sender, message, executor = ui_executor_] {
+        executor->PerformanceDisable(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::getAllTimingInfo(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnUIThread([sender, message, executor = ui_executor_] {
-    executor->getAllTimingInfo(sender, message);
-  });
+  if (!ui_executor_ ||
+      !RunOnUIThread([sender, message, executor = ui_executor_] {
+        executor->getAllTimingInfo(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::getAllPerformanceEntries(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnUIThread([sender, message, executor = ui_executor_] {
-    executor->getAllPerformanceEntries(sender, message);
-  });
+  if (!ui_executor_ ||
+      !RunOnUIThread([sender, message, executor = ui_executor_] {
+        executor->getAllPerformanceEntries(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::LogEnable(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnDevToolThread([responder, params, executor = devtool_executor_] {
-    executor->LogEnable(responder, params);
-  });
+  if (!devtool_executor_ ||
+      !RunOnDevToolThread([responder, params, executor = devtool_executor_] {
+        executor->LogEnable(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::LogDisable(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnDevToolThread([responder, params, executor = devtool_executor_] {
-    executor->LogDisable(responder, params);
-  });
+  if (!devtool_executor_ ||
+      !RunOnDevToolThread([responder, params, executor = devtool_executor_] {
+        executor->LogDisable(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::LogClear(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnDevToolThread([responder, params, executor = devtool_executor_] {
-    executor->LogClear(responder, params);
-  });
+  if (!devtool_executor_ ||
+      !RunOnDevToolThread([responder, params, executor = devtool_executor_] {
+        executor->LogClear(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::SendLogEntryAddedEvent(
@@ -1343,127 +1619,184 @@ void LynxDevToolMediator::AddNativeModuleRecord(const lepus::Value& record) {
 void LynxDevToolMediator::NativeModuleEnable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnDevToolThread(
-      [sender, message, manager = native_module_record_manager_] {
-        if (manager != nullptr) {
-          manager->Enable();
-        }
-        sender->SendOKResponse(message["id"].asInt64());
-      });
+  if (!RunOnDevToolThread(
+          [sender, message, manager = native_module_record_manager_] {
+            if (manager != nullptr) {
+              manager->Enable();
+            }
+            sender->SendOKResponse(message["id"].asInt64());
+          })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::NativeModuleDisable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnDevToolThread(
-      [sender, message, manager = native_module_record_manager_] {
-        if (manager != nullptr) {
-          manager->Disable();
-        }
-        sender->SendOKResponse(message["id"].asInt64());
-      });
+  if (!RunOnDevToolThread(
+          [sender, message, manager = native_module_record_manager_] {
+            if (manager != nullptr) {
+              manager->Disable();
+            }
+            sender->SendOKResponse(message["id"].asInt64());
+          })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::NativeModuleGetRecords(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnDevToolThread(
-      [sender, message, manager = native_module_record_manager_] {
-        if (manager != nullptr) {
-          manager->GetRecords(sender, message["id"].asInt64());
-        } else {
-          sender->SendOKResponse(message["id"].asInt64());
-        }
-      });
+  if (!RunOnDevToolThread(
+          [sender, message, manager = native_module_record_manager_] {
+            if (manager != nullptr) {
+              manager->GetRecords(sender, message["id"].asInt64());
+            } else {
+              sender->SendOKResponse(message["id"].asInt64());
+            }
+          })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 // Network protocol
 void LynxDevToolMediator::NetworkEnable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnDevToolThread([sender, message, executor = devtool_executor_] {
-    executor->NetworkEnable(sender, message);
-  });
+  if (!devtool_executor_ ||
+      !RunOnDevToolThread([sender, message, executor = devtool_executor_] {
+        executor->NetworkEnable(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::NetworkDisable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnDevToolThread([sender, message, executor = devtool_executor_] {
-    executor->NetworkDisable(sender, message);
-  });
+  if (!devtool_executor_ ||
+      !RunOnDevToolThread([sender, message, executor = devtool_executor_] {
+        executor->NetworkDisable(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::NetworkGetResponseBody(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnDevToolThread([sender, message, executor = devtool_executor_] {
-    executor->NetworkGetResponseBody(sender, message);
-  });
+  if (!devtool_executor_ ||
+      !RunOnDevToolThread([sender, message, executor = devtool_executor_] {
+        executor->NetworkGetResponseBody(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::NetworkGetRequestPostData(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnDevToolThread([sender, message, executor = devtool_executor_] {
-    executor->NetworkGetRequestPostData(sender, message);
-  });
+  if (!devtool_executor_ ||
+      !RunOnDevToolThread([sender, message, executor = devtool_executor_] {
+        executor->NetworkGetRequestPostData(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::LayerTreeEnable(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnTASMThread([responder, params, executor = element_executor_] {
-    executor->LayerTreeEnable(responder, params);
-  });
+  if (!element_executor_ ||
+      !RunOnTASMThread([responder, params, executor = element_executor_] {
+        executor->LayerTreeEnable(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::LayerTreeDisable(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnTASMThread([responder, params, executor = element_executor_] {
-    executor->LayerTreeDisable(responder, params);
-  });
+  if (!element_executor_ ||
+      !RunOnTASMThread([responder, params, executor = element_executor_] {
+        executor->LayerTreeDisable(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::AnimationEnable(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnTASMThread([responder, params, executor = element_executor_] {
-    executor->AnimationEnable(responder, params);
-  });
+  if (!element_executor_ ||
+      !RunOnTASMThread([responder, params, executor = element_executor_] {
+        executor->AnimationEnable(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::AnimationDisable(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnTASMThread([responder, params, executor = element_executor_] {
-    executor->AnimationDisable(responder, params);
-  });
+  if (!element_executor_ ||
+      !RunOnTASMThread([responder, params, executor = element_executor_] {
+        executor->AnimationDisable(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::AnimationGetCurrentTime(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnTASMThread([responder, params, executor = element_executor_] {
-    executor->AnimationGetCurrentTime(responder, params);
-  });
+  if (!element_executor_ ||
+      !RunOnTASMThread([responder, params, executor = element_executor_] {
+        executor->AnimationGetCurrentTime(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::AnimationSeekAnimations(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnTASMThread([responder, params, executor = element_executor_] {
-    executor->AnimationSeekAnimations(responder, params);
-  });
+  if (!element_executor_ ||
+      !RunOnTASMThread([responder, params, executor = element_executor_] {
+        executor->AnimationSeekAnimations(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::AnimationSetPaused(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnTASMThread([responder, params, executor = element_executor_] {
-    executor->AnimationSetPaused(responder, params);
-  });
+  if (!element_executor_ ||
+      !RunOnTASMThread([responder, params, executor = element_executor_] {
+        executor->AnimationSetPaused(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::AnimationReleaseAnimations(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnTASMThread([responder, params, executor = element_executor_] {
-    executor->AnimationReleaseAnimations(responder, params);
-  });
+  if (!element_executor_ ||
+      !RunOnTASMThread([responder, params, executor = element_executor_] {
+        executor->AnimationReleaseAnimations(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::SendLayerTreeDidChangeEvent() {
@@ -1474,9 +1807,13 @@ void LynxDevToolMediator::SendLayerTreeDidChangeEvent() {
 
 void LynxDevToolMediator::CompositingReasons(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnTASMThread([responder, params, executor = element_executor_] {
-    executor->CompositingReasons(responder, params);
-  });
+  if (!element_executor_ ||
+      !RunOnTASMThread([responder, params, executor = element_executor_] {
+        executor->CompositingReasons(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::GetBoxModel(
@@ -1574,33 +1911,49 @@ void LynxDevToolMediator::FlushLayoutTreeForReplayEnd(
 void LynxDevToolMediator::LynxGetProperties(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnTASMThread([sender, message, executor = element_executor_] {
-    executor->LynxGetProperties(sender, message);
-  });
+  if (!element_executor_ ||
+      !RunOnTASMThread([sender, message, executor = element_executor_] {
+        executor->LynxGetProperties(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::LynxGetData(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnTASMThread([sender, message, executor = element_executor_] {
-    executor->LynxGetData(sender, message);
-  });
+  if (!element_executor_ ||
+      !RunOnTASMThread([sender, message, executor = element_executor_] {
+        executor->LynxGetData(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::LynxGetComponentId(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnTASMThread([sender, message, executor = element_executor_] {
-    executor->LynxGetComponentId(sender, message);
-  });
+  if (!element_executor_ ||
+      !RunOnTASMThread([sender, message, executor = element_executor_] {
+        executor->LynxGetComponentId(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::LynxSetTraceMode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnDevToolThread([sender, message, executor = devtool_executor_] {
-    executor->LynxSetTraceMode(sender, message);
-  });
+  if (!devtool_executor_ ||
+      !RunOnDevToolThread([sender, message, executor = devtool_executor_] {
+        executor->LynxSetTraceMode(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 bool LynxDevToolMediator::LynxSetLogLevel(
@@ -1614,62 +1967,94 @@ bool LynxDevToolMediator::LynxSetLogLevel(
 void LynxDevToolMediator::LynxGetRectToWindow(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnUIThread([sender, message, executor = ui_executor_] {
-    executor->LynxGetRectToWindow(sender, message);
-  });
+  if (!ui_executor_ ||
+      !RunOnUIThread([sender, message, executor = ui_executor_] {
+        executor->LynxGetRectToWindow(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::LynxGetVersion(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnDevToolThread([sender, message, executor = devtool_executor_] {
-    executor->LynxGetVersion(sender, message);
-  });
+  if (!devtool_executor_ ||
+      !RunOnDevToolThread([sender, message, executor = devtool_executor_] {
+        executor->LynxGetVersion(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::LynxTransferData(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnUIThread([sender, message, executor = ui_executor_] {
-    executor->LynxTransferData(sender, message);
-  });
+  if (!ui_executor_ ||
+      !RunOnUIThread([sender, message, executor = ui_executor_] {
+        executor->LynxTransferData(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::LynxGetViewLocationOnScreen(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnUIThread([sender, message, executor = ui_executor_] {
-    executor->LynxGetViewLocationOnScreen(sender, message);
-  });
+  if (!ui_executor_ ||
+      !RunOnUIThread([sender, message, executor = ui_executor_] {
+        executor->LynxGetViewLocationOnScreen(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::LynxSendEventToVM(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  RunOnUIThread([sender, message, executor = ui_executor_] {
-    executor->LynxSendEventToVM(sender, message);
-  });
+  if (!ui_executor_ ||
+      !RunOnUIThread([sender, message, executor = ui_executor_] {
+        executor->LynxSendEventToVM(sender, message);
+      })) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32603,
+                              "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::TemplateGetTemplateData(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnUIThread([responder, params, executor = ui_executor_] {
-    executor->TemplateGetTemplateData(responder, params);
-  });
+  if (!ui_executor_ ||
+      !RunOnUIThread([responder, params, executor = ui_executor_] {
+        executor->TemplateGetTemplateData(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::TemplateGetTemplateJsInfo(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnUIThread([responder, params, executor = ui_executor_] {
-    executor->TemplateGetTemplateJsInfo(responder, params);
-  });
+  if (!ui_executor_ ||
+      !RunOnUIThread([responder, params, executor = ui_executor_] {
+        executor->TemplateGetTemplateJsInfo(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::TemplateGetTemplateApiInfo(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
-  RunOnTASMThread([responder, params, executor = element_executor_] {
-    executor->TemplateGetTemplateApiInfo(responder, params);
-  });
+  if (!element_executor_ ||
+      !RunOnTASMThread([responder, params, executor = element_executor_] {
+        executor->TemplateGetTemplateApiInfo(responder, params);
+      })) {
+    responder->SendError(CDPErrorCode::InternalError,
+                         "CDP backend is unavailable");
+  }
 }
 
 void LynxDevToolMediator::InitWhiteBoardInspector(
