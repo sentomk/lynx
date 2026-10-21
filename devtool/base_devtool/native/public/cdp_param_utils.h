@@ -5,11 +5,47 @@
 #ifndef DEVTOOL_BASE_DEVTOOL_NATIVE_PUBLIC_CDP_PARAM_UTILS_H_
 #define DEVTOOL_BASE_DEVTOOL_NATIVE_PUBLIC_CDP_PARAM_UTILS_H_
 
+#include <initializer_list>
+#include <memory>
+#include <string>
+
 #include "devtool/base_devtool/native/public/base_devtool_export.h"
 #include "third_party/jsoncpp/include/json/json.h"
 
 namespace lynx {
 namespace devtool {
+class CDPResponder;
+class MessageSender;
+
+enum class CDPParamType {
+  kInteger,
+  kNumber,
+  kFloat,
+  kBoolean,
+  kString,
+  kObject,
+  kArray,
+  kAny,
+  kCoordinate
+};
+struct CDPParamRule {
+  const char* path;
+  CDPParamType type;
+  bool optional = false;
+};
+
+// Validate before any JsonCpp conversion or business side effect. Rules are
+// owned by each handler, not generated contracts. Parents precede children;
+// dotted paths and [] check nested members and each array element.
+BASE_DEVTOOL_EXPORT bool ValidateCDPParams(
+    const Json::Value& params, std::initializer_list<CDPParamRule> rules,
+    std::string& error);
+BASE_DEVTOOL_EXPORT bool CheckCDPParams(
+    const std::shared_ptr<MessageSender>& sender, const Json::Value& message,
+    std::initializer_list<CDPParamRule> rules);
+BASE_DEVTOOL_EXPORT bool CheckCDPParams(
+    const std::shared_ptr<CDPResponder>& responder, const Json::Value& params,
+    std::initializer_list<CDPParamRule> rules);
 
 // Read a JSON integer representable as int, without coercing other JSON types.
 // Both helpers leave result unchanged on failure, including missing/null

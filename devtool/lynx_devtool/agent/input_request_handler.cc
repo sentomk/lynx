@@ -216,6 +216,19 @@ void InputRequestHandler::Reset() { synthetic_gesture_controller_.reset(); }
 
 void InputRequestHandler::EmulateTouchFromMouseEvent(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
+  if (!CheckCDPParams(responder, params,
+                      {{"button", CDPParamType::kString},
+                       {"clickCount", CDPParamType::kInteger, true},
+                       {"deltaX", CDPParamType::kFloat, true},
+                       {"deltaY", CDPParamType::kFloat, true},
+                       {"modifiers", CDPParamType::kInteger, true},
+                       {"timestamp", CDPParamType::kNumber, true},
+                       {"type", CDPParamType::kString},
+                       {"x", CDPParamType::kInteger},
+                       {"y", CDPParamType::kInteger}})) {
+    return;
+  }
+
   if (!devtool_platform_facade_) {
     responder->SendError(CDPErrorCode::ServerError,
                          "Input target is unavailable");
@@ -239,6 +252,26 @@ void InputRequestHandler::EmulateTouchFromMouseEvent(
 
 void InputRequestHandler::DispatchMouseEvent(
     const std::shared_ptr<CDPResponder>& responder, const Json::Value& params) {
+  if (!CheckCDPParams(responder, params,
+                      {{"button", CDPParamType::kString, true},
+                       {"buttons", CDPParamType::kInteger, true},
+                       {"clickCount", CDPParamType::kInteger, true},
+                       {"deltaX", CDPParamType::kFloat, true},
+                       {"deltaY", CDPParamType::kFloat, true},
+                       {"force", CDPParamType::kNumber, true},
+                       {"modifiers", CDPParamType::kInteger, true},
+                       {"pointerType", CDPParamType::kString, true},
+                       {"tangentialPressure", CDPParamType::kNumber, true},
+                       {"tiltX", CDPParamType::kNumber, true},
+                       {"tiltY", CDPParamType::kNumber, true},
+                       {"timestamp", CDPParamType::kNumber, true},
+                       {"twist", CDPParamType::kInteger, true},
+                       {"type", CDPParamType::kString},
+                       {"x", CDPParamType::kCoordinate},
+                       {"y", CDPParamType::kCoordinate}})) {
+    return;
+  }
+
   if (!devtool_platform_facade_) {
     responder->SendError(CDPErrorCode::ServerError,
                          "Input target is unavailable");

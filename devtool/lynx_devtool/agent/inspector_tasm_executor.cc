@@ -1180,6 +1180,12 @@ lynx::tasm::Element* InspectorTasmExecutor::GetElementRoot() {
 void InspectorTasmExecutor::QuerySelector(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"nodeId", CDPParamType::kInteger},
+                       {"selector", CDPParamType::kString}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -1202,6 +1208,10 @@ void InspectorTasmExecutor::QuerySelector(
 void InspectorTasmExecutor::GetAttributes(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -1218,6 +1228,10 @@ void InspectorTasmExecutor::GetAttributes(
 void InspectorTasmExecutor::InnerText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -1250,6 +1264,12 @@ void InspectorTasmExecutor::InnerText(
 void InspectorTasmExecutor::QuerySelectorAll(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"nodeId", CDPParamType::kInteger},
+                       {"selector", CDPParamType::kString}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -1292,6 +1312,13 @@ InspectorTasmExecutor::GetFunctionForElementMap() {
 void InspectorTasmExecutor::DOM_Enable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"compressionThreshold", CDPParamType::kInteger, true},
+                       {"includeWhitespace", CDPParamType::kString, true},
+                       {"useCompression", CDPParamType::kBoolean, true}})) {
+    return;
+  }
+
   SetDOMState(true, message);
 
   Json::Value response(Json::ValueType::objectValue);
@@ -1316,6 +1343,12 @@ void InspectorTasmExecutor::DOM_Disable(
 void InspectorTasmExecutor::GetDocument(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"depth", CDPParamType::kInteger, true},
+                       {"pierce", CDPParamType::kBoolean, true}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content = Json::Value(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -1356,6 +1389,15 @@ void InspectorTasmExecutor::GetDocument(
 void InspectorTasmExecutor::DescribeNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"backendNodeId", CDPParamType::kInteger, true},
+                       {"depth", CDPParamType::kInteger, true},
+                       {"nodeId", CDPParamType::kInteger, true},
+                       {"objectId", CDPParamType::kString, true},
+                       {"pierce", CDPParamType::kBoolean, true}})) {
+    return;
+  }
+
   const Json::Value params = message["params"];
   int depth = 1;
   if (params.isMember("depth")) {
@@ -1477,6 +1519,13 @@ void InspectorTasmExecutor::GetDocumentWithBoxModel(
 void InspectorTasmExecutor::RequestChildNodes(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"depth", CDPParamType::kInteger, true},
+                       {"nodeId", CDPParamType::kInteger},
+                       {"pierce", CDPParamType::kBoolean, true}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content = Json::Value(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -1517,6 +1566,13 @@ void InspectorTasmExecutor::RequestChildNodes(
 void InspectorTasmExecutor::DOM_GetBoxModel(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"backendNodeId", CDPParamType::kInteger, true},
+                       {"nodeId", CDPParamType::kInteger, true},
+                       {"objectId", CDPParamType::kString, true}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value params = message["params"];
   int index = params["nodeId"].asInt();
@@ -1636,6 +1692,13 @@ bool InspectorTasmExecutor::BuildBoxModelQuery(tasm::Element* element,
 void InspectorTasmExecutor::SetAttributesAsText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"name", CDPParamType::kString, true},
+                       {"nodeId", CDPParamType::kInteger},
+                       {"text", CDPParamType::kString}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -1672,6 +1735,12 @@ void InspectorTasmExecutor::MarkUndoableState(
 void InspectorTasmExecutor::PushNodesByBackendIdsToFrontend(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"backendNodeIds", CDPParamType::kArray},
+                       {"backendNodeIds[]", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value nodeIds(Json::ValueType::arrayValue);
@@ -1687,6 +1756,10 @@ void InspectorTasmExecutor::PushNodesByBackendIdsToFrontend(
 void InspectorTasmExecutor::RemoveNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value content(Json::ValueType::objectValue);
 }
 
@@ -1694,6 +1767,13 @@ void InspectorTasmExecutor::RemoveNode(
 void InspectorTasmExecutor::MoveTo(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"insertBeforeNodeId", CDPParamType::kInteger, true},
+                       {"nodeId", CDPParamType::kInteger},
+                       {"targetNodeId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value content(Json::ValueType::objectValue);
 }
 
@@ -1701,12 +1781,27 @@ void InspectorTasmExecutor::MoveTo(
 void InspectorTasmExecutor::CopyTo(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"insertBeforeNodeId", CDPParamType::kInteger, true},
+                       {"nodeId", CDPParamType::kInteger},
+                       {"targetNodeId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value content(Json::ValueType::objectValue);
 }
 
 void InspectorTasmExecutor::GetOuterHTML(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"backendNodeId", CDPParamType::kInteger, true},
+                       {"includeShadowDOM", CDPParamType::kBoolean, true},
+                       {"nodeId", CDPParamType::kInteger, true},
+                       {"objectId", CDPParamType::kString, true}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -1724,12 +1819,22 @@ void InspectorTasmExecutor::GetOuterHTML(
 void InspectorTasmExecutor::SetOuterHTML(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"nodeId", CDPParamType::kInteger},
+                       {"outerHTML", CDPParamType::kString}})) {
+    return;
+  }
+
   Json::Value content(Json::ValueType::objectValue);
 }
 
 void InspectorTasmExecutor::SetInspectedNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   response["result"] = content;
@@ -1740,6 +1845,13 @@ void InspectorTasmExecutor::SetInspectedNode(
 void InspectorTasmExecutor::PerformSearch(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(
+          sender, message,
+          {{"includeUserAgentShadowDOM", CDPParamType::kBoolean, true},
+           {"query", CDPParamType::kString}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -1758,6 +1870,13 @@ void InspectorTasmExecutor::PerformSearch(
 void InspectorTasmExecutor::GetSearchResults(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"fromIndex", CDPParamType::kInteger},
+                       {"searchId", CDPParamType::kString},
+                       {"toIndex", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -1789,6 +1908,10 @@ void InspectorTasmExecutor::GetSearchResults(
 void InspectorTasmExecutor::DiscardSearchResults(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message, {{"searchId", CDPParamType::kString}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -1809,6 +1932,10 @@ void InspectorTasmExecutor::DiscardSearchResults(
 void InspectorTasmExecutor::GetOriginalNodeIndex(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
 
@@ -1828,6 +1955,10 @@ void InspectorTasmExecutor::GetOriginalNodeIndex(
 void InspectorTasmExecutor::GetOriginalNodeSourceInfo(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
 
@@ -1864,6 +1995,18 @@ void InspectorTasmExecutor::GetOriginalNodeSourceInfo(
 void InspectorTasmExecutor::ScrollIntoViewIfNeeded(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"backendNodeId", CDPParamType::kInteger, true},
+                       {"nodeId", CDPParamType::kInteger, true},
+                       {"objectId", CDPParamType::kString, true},
+                       {"rect", CDPParamType::kObject, true},
+                       {"rect.height", CDPParamType::kNumber},
+                       {"rect.width", CDPParamType::kNumber},
+                       {"rect.x", CDPParamType::kNumber},
+                       {"rect.y", CDPParamType::kNumber}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
 
@@ -1897,6 +2040,13 @@ void InspectorTasmExecutor::ScrollIntoViewIfNeeded(
 void InspectorTasmExecutor::DOM_Focus(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"backendNodeId", CDPParamType::kInteger, true},
+                       {"nodeId", CDPParamType::kInteger, true},
+                       {"objectId", CDPParamType::kString, true}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   response["id"] = message["id"].asInt64();
@@ -2040,6 +2190,11 @@ void InspectorTasmExecutor::WhiteBoardClear(
 void InspectorTasmExecutor::DOMEnableDomTree(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"ignoreCache", CDPParamType::kBoolean, true}})) {
+    return;
+  }
+
   lynx::tasm::LynxEnv::GetInstance().SetBoolLocalEnv(
       lynx::tasm::LynxEnv::kLynxEnableDomTree, true);
   Json::Value params = message["params"];
@@ -2060,6 +2215,11 @@ void InspectorTasmExecutor::DOMEnableDomTree(
 void InspectorTasmExecutor::DOMDisableDomTree(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"ignoreCache", CDPParamType::kBoolean, true}})) {
+    return;
+  }
+
   lynx::tasm::LynxEnv::GetInstance().SetBoolLocalEnv(
       lynx::tasm::LynxEnv::kLynxEnableDomTree, false);
   Json::Value params = message["params"];
@@ -2230,6 +2390,10 @@ void InspectorTasmExecutor::CSS_Disable(
 void InspectorTasmExecutor::GetMatchedStylesForNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -2251,6 +2415,10 @@ void InspectorTasmExecutor::GetMatchedStylesForNode(
 void InspectorTasmExecutor::GetLayersForNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   response["id"] = message["id"].asInt64();
 
@@ -2279,6 +2447,10 @@ void InspectorTasmExecutor::GetLayersForNode(
 void InspectorTasmExecutor::GetComputedStyleForNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -2329,6 +2501,10 @@ void InspectorTasmExecutor::GetComputedStyleForNode(
 void InspectorTasmExecutor::GetInlineStylesForNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -2345,6 +2521,21 @@ void InspectorTasmExecutor::GetInlineStylesForNode(
 void InspectorTasmExecutor::SetStyleTexts(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"edits", CDPParamType::kArray},
+                       {"edits[]", CDPParamType::kObject},
+                       {"edits[].range", CDPParamType::kObject},
+                       {"edits[].range.endColumn", CDPParamType::kInteger},
+                       {"edits[].range.endLine", CDPParamType::kInteger},
+                       {"edits[].range.startColumn", CDPParamType::kInteger},
+                       {"edits[].range.startLine", CDPParamType::kInteger},
+                       {"edits[].styleSheetId", CDPParamType::kString},
+                       {"edits[].text", CDPParamType::kString},
+                       {"nodeForPropertySyntaxValidation",
+                        CDPParamType::kInteger, true}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -2387,6 +2578,11 @@ void InspectorTasmExecutor::SetStyleTexts(
 void InspectorTasmExecutor::GetStyleSheetText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"styleSheetId", CDPParamType::kString}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -2410,6 +2606,10 @@ void InspectorTasmExecutor::GetStyleSheetText(
 void InspectorTasmExecutor::GetBackgroundColors(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -2426,6 +2626,12 @@ void InspectorTasmExecutor::GetBackgroundColors(
 void InspectorTasmExecutor::SetStyleSheetText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"styleSheetId", CDPParamType::kString},
+                       {"text", CDPParamType::kString}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -2440,6 +2646,12 @@ void InspectorTasmExecutor::SetStyleSheetText(
 void InspectorTasmExecutor::CreateStyleSheet(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"force", CDPParamType::kBoolean, true},
+                       {"frameId", CDPParamType::kString}})) {
+    return;
+  }
+
   auto devtool_mediator = devtool_mediator_wp_.lock();
   CHECK_NULL_AND_LOG_RETURN(devtool_mediator, "devtool_mediator is null");
   Json::Value response(Json::ValueType::objectValue);
@@ -2463,6 +2675,19 @@ void InspectorTasmExecutor::CreateStyleSheet(
 void InspectorTasmExecutor::AddRule(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(
+          sender, message,
+          {{"location", CDPParamType::kObject},
+           {"location.endColumn", CDPParamType::kInteger},
+           {"location.endLine", CDPParamType::kInteger},
+           {"location.startColumn", CDPParamType::kInteger},
+           {"location.startLine", CDPParamType::kInteger},
+           {"nodeForPropertySyntaxValidation", CDPParamType::kInteger, true},
+           {"ruleText", CDPParamType::kString},
+           {"styleSheetId", CDPParamType::kString}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value params = message["params"];
   std::string style_sheet_id = params["styleSheetId"].asString();
@@ -2529,6 +2754,12 @@ void InspectorTasmExecutor::StartRuleUsageTracking(
 void InspectorTasmExecutor::UpdateRuleUsageTracking(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"selector", CDPParamType::kArray, true},
+                       {"selector[]", CDPParamType::kString}})) {
+    return;
+  }
+
   if (rule_usage_tracking_) {
     Json::Value selectors(Json::ValueType::arrayValue);
     selectors = message["params"]["selector"];
@@ -2646,6 +2877,17 @@ void InspectorTasmExecutor::GetMediaQueries(
 void InspectorTasmExecutor::SetMediaText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"range", CDPParamType::kObject},
+                       {"range.endColumn", CDPParamType::kInteger},
+                       {"range.endLine", CDPParamType::kInteger},
+                       {"range.startColumn", CDPParamType::kInteger},
+                       {"range.startLine", CDPParamType::kInteger},
+                       {"styleSheetId", CDPParamType::kString},
+                       {"text", CDPParamType::kString}})) {
+    return;
+  }
+
   const ConditionTextEditRequest request =
       ParseConditionTextEditRequest(message, "@media");
 
@@ -2686,6 +2928,17 @@ void InspectorTasmExecutor::SetMediaText(
 void InspectorTasmExecutor::SetSupportsText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"range", CDPParamType::kObject},
+                       {"range.endColumn", CDPParamType::kInteger},
+                       {"range.endLine", CDPParamType::kInteger},
+                       {"range.startColumn", CDPParamType::kInteger},
+                       {"range.startLine", CDPParamType::kInteger},
+                       {"styleSheetId", CDPParamType::kString},
+                       {"text", CDPParamType::kString}})) {
+    return;
+  }
+
   const ConditionTextEditRequest request =
       ParseConditionTextEditRequest(message, "@supports");
 
@@ -2831,6 +3084,10 @@ void InspectorTasmExecutor::HideHighlight(
 void InspectorTasmExecutor::LynxGetProperties(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   content["properties"] = "";
@@ -2850,6 +3107,10 @@ void InspectorTasmExecutor::LynxGetProperties(
 void InspectorTasmExecutor::LynxGetData(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   content["data"] = "";
@@ -2869,6 +3130,10 @@ void InspectorTasmExecutor::LynxGetData(
 void InspectorTasmExecutor::LynxGetComponentId(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   content["componentId"] = -1;
@@ -3075,6 +3340,12 @@ void InspectorTasmExecutor::SendLayoutTreeWithCallback(
 void InspectorTasmExecutor::PageGetResourceContent(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"frameId", CDPParamType::kString},
+                       {"url", CDPParamType::kString}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   content["base64Encoded"] = false;

@@ -222,6 +222,66 @@ TEST(CDPParamUtilsTest, MissingFieldsAndNullParamsFailWithoutChangingOutput) {
   EXPECT_FLOAT_EQ(float_result, 42.0f);
 }
 
+TEST(CDPParamUtilsTest, ValidateNestedArraysBeforeConversions) {
+  const std::initializer_list<CDPParamRule> rules = {
+      {"edits", CDPParamType::kArray},
+      {"edits[]", CDPParamType::kObject},
+      {"edits[].range", CDPParamType::kObject},
+      {"edits[].range.line", CDPParamType::kInteger},
+      {"edits[].text", CDPParamType::kString}};
+  Json::Value params;
+  params["edits"][0]["range"]["line"] = 1;
+  params["edits"][0]["text"] = "color: red";
+  std::string error;
+  EXPECT_TRUE(ValidateCDPParams(params, rules, error));
+  params["edits"][0]["range"]["line"] = "1";
+  EXPECT_FALSE(ValidateCDPParams(params, rules, error));
+  EXPECT_NE(error.find("params.edits[0].range.line"), std::string::npos);
+  params["edits"][0] = 1;
+  EXPECT_FALSE(ValidateCDPParams(params, rules, error));
+  params["edits"] = Json::Value(Json::objectValue);
+  EXPECT_FALSE(ValidateCDPParams(params, rules, error));
+}
+
+TEST(CDPParamUtilsTest, ValidateOptionalSubtreeAndRequiredFields) {
+  const std::initializer_list<CDPParamRule> rules = {
+      {"range", CDPParamType::kObject, true},
+      {"range.line", CDPParamType::kInteger}};
+  std::string error;
+  EXPECT_TRUE(ValidateCDPParams(Json::Value(), rules, error));
+  Json::Value params;
+  params["range"] = Json::Value(Json::objectValue);
+  EXPECT_FALSE(ValidateCDPParams(params, rules, error));
+  params["range"]["line"] = 0;
+  EXPECT_TRUE(ValidateCDPParams(params, rules, error));
+  params["range"] = Json::nullValue;
+  EXPECT_FALSE(ValidateCDPParams(params, rules, error));
+  EXPECT_FALSE(ValidateCDPParams(Json::Value("1"), rules, error));
+  EXPECT_FALSE(
+      ValidateCDPParams(Json::Value(), {{"x", CDPParamType::kInteger}}, error));
+}
+
+TEST(CDPParamUtilsTest, ValidateNativeNumericLimitsAndUnknownFields) {
+  Json::Value params;
+  params["x"] = 1.5;
+  params["extension"] = Json::Value(Json::arrayValue);
+  std::string error;
+  EXPECT_TRUE(
+      ValidateCDPParams(params, {{"x", CDPParamType::kCoordinate}}, error));
+  EXPECT_FALSE(
+      ValidateCDPParams(params, {{"x", CDPParamType::kInteger}}, error));
+  params["x"] = Json::UInt64(1) << 40;
+  EXPECT_FALSE(
+      ValidateCDPParams(params, {{"x", CDPParamType::kCoordinate}}, error));
+  EXPECT_FALSE(
+      ValidateCDPParams(params, {{"x", CDPParamType::kInteger}}, error));
+  params["x"] = std::numeric_limits<double>::infinity();
+  EXPECT_FALSE(
+      ValidateCDPParams(params, {{"x", CDPParamType::kNumber}}, error));
+  params["x"] = std::numeric_limits<double>::max();
+  EXPECT_FALSE(ValidateCDPParams(params, {{"x", CDPParamType::kFloat}}, error));
+}
+
 }  // namespace testing
 }  // namespace devtool
 }  // namespace lynx

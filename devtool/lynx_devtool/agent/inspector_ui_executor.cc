@@ -80,6 +80,15 @@ void InspectorUIExecutor::SetShell(lynx::shell::LynxShell* shell) {
 void InspectorUIExecutor::GetNodeForLocation(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(
+          sender, message,
+          {{"ignorePointerEventsNone", CDPParamType::kBoolean, true},
+           {"includeUserAgentShadowDOM", CDPParamType::kBoolean, true},
+           {"x", CDPParamType::kInteger},
+           {"y", CDPParamType::kInteger}})) {
+    return;
+  }
+
   CHECK_NULL_AND_LOG_RETURN(shell_, "GetNodeForLocation: shell_ is null");
   const std::unique_ptr<tasm::ElementManager>& element_manager =
       shell_->GetTasm()->page_proxy()->element_manager();
@@ -131,6 +140,17 @@ void InspectorUIExecutor::PageReload(bool ignore_cache,
                                      const std::string& reload_url,
                                      bool from_template_fragments,
                                      int32_t template_size) {
+  if (!CheckCDPParams(sender, message,
+                      {{"ignoreCache", CDPParamType::kBoolean, true},
+                       {"loaderId", CDPParamType::kString, true},
+                       {"scriptToEvaluateOnLoad", CDPParamType::kString, true},
+                       {"pageData", CDPParamType::kString, true},
+                       {"fromPageDataFragments", CDPParamType::kBoolean, true},
+                       {"pageDataLength", CDPParamType::kInteger, true},
+                       {"url", CDPParamType::kString, true}})) {
+    return;
+  }
+
   CHECK_NULL_AND_LOG_RETURN(devtool_platform_facade_,
                             "devtool_platform_facade_ is null");
   devtool_platform_facade_->PageReload(ignore_cache, template_binary,
@@ -141,6 +161,16 @@ void InspectorUIExecutor::PageReload(bool ignore_cache,
 void InspectorUIExecutor::StartScreencast(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"everyNthFrame", CDPParamType::kInteger, true},
+                       {"format", CDPParamType::kString, true},
+                       {"maxHeight", CDPParamType::kInteger, true},
+                       {"maxWidth", CDPParamType::kInteger, true},
+                       {"mode", CDPParamType::kString, true},
+                       {"quality", CDPParamType::kInteger, true}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -190,6 +220,12 @@ void InspectorUIExecutor::StopScreencast(
 void InspectorUIExecutor::PageEnable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(
+          sender, message,
+          {{"enableFileChooserOpenedEvent", CDPParamType::kBoolean, true}})) {
+    return;
+  }
+
   // SendWelcomeMessage
   {
     Json::Value content;
@@ -289,6 +325,15 @@ void InspectorUIExecutor::PageReload(
 void InspectorUIExecutor::PageNavigate(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"frameId", CDPParamType::kString, true},
+                       {"referrer", CDPParamType::kString, true},
+                       {"referrerPolicy", CDPParamType::kString, true},
+                       {"transitionType", CDPParamType::kString, true},
+                       {"url", CDPParamType::kString}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -309,6 +354,12 @@ void InspectorUIExecutor::PageNavigate(
 void InspectorUIExecutor::UITree_Enable(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"compressionThreshold", CDPParamType::kInteger, true},
+                       {"useCompression", CDPParamType::kBoolean, true}})) {
+    return;
+  }
+
   Json::Value params = message["params"];
   if (params.isMember("useCompression")) {
     uitree_use_compression_ = params["useCompression"].asBool();
@@ -377,6 +428,11 @@ void InspectorUIExecutor::GetLynxUITree(
 void InspectorUIExecutor::GetUIInfoForNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"UINodeId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   if (!uitree_enabled_) return;
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content = Json::Value(Json::ValueType::objectValue);
@@ -400,6 +456,13 @@ void InspectorUIExecutor::GetUIInfoForNode(
 void InspectorUIExecutor::SetUIStyle(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"UINodeId", CDPParamType::kInteger},
+                       {"styleContent", CDPParamType::kString},
+                       {"styleName", CDPParamType::kString}})) {
+    return;
+  }
+
   if (!uitree_enabled_) return;
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -426,6 +489,11 @@ void InspectorUIExecutor::SetUIStyle(
 void InspectorUIExecutor::ScreencastFrameAck(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"sessionId", CDPParamType::kInteger}})) {
+    return;
+  }
+
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
   response["result"] = content;
@@ -479,6 +547,13 @@ void InspectorUIExecutor::LynxGetRectToWindow(
 void InspectorUIExecutor::LynxTransferData(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"data", CDPParamType::kString},
+                       {"dataType", CDPParamType::kString},
+                       {"eof", CDPParamType::kBoolean}})) {
+    return;
+  }
+
   Json::Value params = message["params"];
   if (params.empty()) {
     return;
@@ -591,6 +666,13 @@ std::vector<double> InspectorUIExecutor::GetBoxModel(
 void InspectorUIExecutor::LynxSendEventToVM(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
+  if (!CheckCDPParams(sender, message,
+                      {{"data", CDPParamType::kString, true},
+                       {"event", CDPParamType::kString},
+                       {"vmType", CDPParamType::kString}})) {
+    return;
+  }
+
   Json::Value params = message["params"];
   if (!params.empty()) {
     Json::Value vm_type = params["vmType"];

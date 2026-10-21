@@ -793,6 +793,7 @@ TEST_F(DevToolMediatorTest, LayerTreeCommandsRunOnTASMThreadCase) {
 
 TEST_F(DevToolMediatorTest, LynxGetPropertyElementNull) {
   Json::Value param;
+  param["params"]["nodeId"] = 0;
   devtool_mediator_->LynxGetProperties(message_sender_, param);
   tasm_thread_->Join();
   EXPECT_EQ(devtool::MockReceiver::GetInstance().received_message_.second,
@@ -802,6 +803,7 @@ TEST_F(DevToolMediatorTest, LynxGetPropertyElementNull) {
 
 TEST_F(DevToolMediatorTest, LynxGetDataElementNull) {
   Json::Value param;
+  param["params"]["nodeId"] = 0;
   devtool_mediator_->LynxGetData(message_sender_, param);
   tasm_thread_->Join();
   EXPECT_EQ(
@@ -811,6 +813,7 @@ TEST_F(DevToolMediatorTest, LynxGetDataElementNull) {
 
 TEST_F(DevToolMediatorTest, LynxGetComponentIdElementNull) {
   Json::Value param;
+  param["params"]["nodeId"] = 0;
   devtool_mediator_->LynxGetComponentId(message_sender_, param);
   tasm_thread_->Join();
   EXPECT_EQ(devtool::MockReceiver::GetInstance().received_message_.second,
@@ -872,6 +875,9 @@ TEST_F(DevToolMediatorTest, LynxGetViewLocationOnScreen) {
 
 TEST_F(DevToolMediatorTest, LynxSendEventToVM) {
   Json::Value request = Json::Value(Json::ValueType::objectValue);
+  request["params"]["event"] = "test";
+  request["params"]["vmType"] = "main";
+  request["params"]["data"] = "{}";
   devtool_mediator_->LynxSendEventToVM(message_sender_, request);
   ui_thread_->Join();
   EXPECT_EQ(devtool::MockReceiver::GetInstance().received_message_.second,

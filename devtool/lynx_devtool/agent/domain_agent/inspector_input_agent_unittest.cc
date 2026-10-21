@@ -289,6 +289,10 @@ TEST_F(InspectorInputAgentTest,
   Json::Value message(Json::ValueType::objectValue);
   message["id"] = 40;
   message["method"] = "Input.emulateTouchFromMouseEvent";
+  message["params"]["type"] = "mousePressed";
+  message["params"]["button"] = "left";
+  message["params"]["x"] = 10;
+  message["params"]["y"] = 20;
 
   Dispatch(message);
 
