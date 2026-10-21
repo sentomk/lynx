@@ -18,6 +18,7 @@
 #include "devtool/lynx_devtool/agent/domain_agent/inspector_layer_tree_agent_ng.h"
 #include "devtool/lynx_devtool/agent/inspector_tasm_executor.h"
 #include "devtool/lynx_devtool/agent/lynx_devtool_mediator.h"
+#include "devtool/lynx_devtool/protocol/contract_test_harness.h"
 #include "devtool/testing/mock/lynx_devtool_ng_mock.h"
 #include "third_party/googletest/googletest/include/gtest/gtest.h"
 
@@ -60,6 +61,7 @@ class LayerTreeTestMessageSender : public MessageSender {
 class InspectorLayerTreeAgentTest : public ::testing::Test {
  public:
   void SetUp() override {
+    contract_ = std::make_unique<ContractTestHarness>();
     mediator_ = std::make_shared<LynxDevToolMediator>();
     executor_ = std::make_shared<InspectorTasmExecutor>(mediator_, 1);
     mediator_->element_executor_ = executor_;
@@ -72,7 +74,7 @@ class InspectorLayerTreeAgentTest : public ::testing::Test {
     event_sender_ = std::make_shared<LayerTreeTestMessageSender>();
     listener_ = std::make_shared<LayerTreeTestMessageSender>();
     devtool_ = std::make_shared<lynx::testing::LynxDevToolNGMock>();
-    devtool_->message_sender_ = event_sender_;
+    devtool_->message_sender_ = contract_->Wrap(event_sender_);
     mediator_->devtool_wp_ = devtool_;
     mediator_->AddCDPEventListener("LayerTreeTest", listener_);
     agent_ = std::make_unique<InspectorLayerTreeAgentNG>(mediator_);
@@ -80,6 +82,7 @@ class InspectorLayerTreeAgentTest : public ::testing::Test {
 
   void TearDown() override {
     tasm_thread_->GetTaskRunner()->PostSyncTask([] {});
+    contract_.reset();
     tasm_thread_->Join();
     mediator_->tasm_task_runner_ = nullptr;
   }
@@ -93,11 +96,7 @@ class InspectorLayerTreeAgentTest : public ::testing::Test {
     if (!omit_params) {
       message["params"] = params;
     }
-    {
-      auto responder =
-          std::make_shared<CDPResponder>(response_sender_, kRequestId);
-      agent_->CallMethod(responder, message);
-    }
+    contract_->Dispatch(*agent_, contract_->Wrap(response_sender_), message);
     tasm_thread_->GetTaskRunner()->PostSyncTask([] {});
   }
 
@@ -113,6 +112,7 @@ class InspectorLayerTreeAgentTest : public ::testing::Test {
   }
 
   static constexpr int64_t kRequestId = 1LL << 40;
+  std::unique_ptr<ContractTestHarness> contract_;
   std::unique_ptr<fml::Thread> tasm_thread_;
   std::thread::id tasm_thread_id_;
   std::shared_ptr<LynxDevToolMediator> mediator_;
@@ -125,7 +125,7 @@ class InspectorLayerTreeAgentTest : public ::testing::Test {
 };
 
 TEST_F(InspectorLayerTreeAgentTest, EnableWithoutParamsRespondsBeforeEvents) {
-  devtool_->message_sender_ = response_sender_;
+  devtool_->message_sender_ = contract_->Wrap(response_sender_);
 
   Dispatch("LayerTree.enable", Json::Value(), true);
 
@@ -182,6 +182,8 @@ TEST_F(InspectorLayerTreeAgentTest, CompositingReasonsReturnsToRequestSender) {
 }
 
 TEST_F(InspectorLayerTreeAgentTest, UnknownMethodReturnsMethodNotFound) {
+  contract_->Expect(ContractViolation::Kind::kUnknownMethod,
+                    "LayerTree.unknown");
   Dispatch("LayerTree.unknown", Json::Value());
 
   auto response = OnlyResponse();
@@ -192,6 +194,8 @@ TEST_F(InspectorLayerTreeAgentTest, UnknownMethodReturnsMethodNotFound) {
 }
 
 TEST_F(InspectorLayerTreeAgentTest, CompositingReasonsRejectsMissingParams) {
+  contract_->Expect(ContractViolation::Kind::kInvalidParams,
+                    "LayerTree.compositingReasons");
   Dispatch("LayerTree.compositingReasons", Json::Value(), true);
 
   auto response = OnlyResponse();
@@ -219,6 +223,9 @@ TEST_F(InspectorLayerTreeAgentTest, CompositingReasonsRejectsInvalidLayerIds) {
     response_sender_ = std::make_shared<LayerTreeTestMessageSender>();
     Json::Value params(Json::objectValue);
     params["layerId"] = layer_id;
+    if (!layer_id.isString())
+      contract_->Expect(ContractViolation::Kind::kInvalidParams,
+                        "LayerTree.compositingReasons");
     Dispatch("LayerTree.compositingReasons", params);
 
     auto response = OnlyResponse();
