@@ -4,24 +4,13 @@
 
 """Emit constant runtime parameter descriptors, never types or dispatch code."""
 import json
+from cdpc.model import Contract  # Activates the pinned core before importing it.
+from cdpc_core.descriptors import SchemaPool
 
 
 def generate(contract, inventory):
-    nodes, indices = [], {}
-
-    def add(schema):
-        key = json.dumps(schema, sort_keys=True)
-        if key not in indices:
-            indices[key] = len(nodes)
-            nodes.append(schema)
-            if 'ref' in schema:
-                add(contract.types[schema['ref']])
-            for _, prop in sorted(schema.get('properties', {}).items()):
-                add(prop['schema'])
-            for field in ('items', 'values'):
-                if field in schema:
-                    add(schema[field])
-        return indices[key]
+    pool = SchemaPool(contract.types)
+    nodes, add = pool.nodes, pool.add
 
     methods = []
     for name in sorted(inventory.methods):

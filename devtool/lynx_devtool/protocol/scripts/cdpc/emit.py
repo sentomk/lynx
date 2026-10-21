@@ -2,48 +2,12 @@
 # Licensed under the Apache License Version 2.0 that can be found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Deterministic manifest v2 and contract JSON emission."""
-import difflib
+"""Lynx manifest, include paths and C++ bindings around the independent core."""
 import json
-import os
-import tempfile
 import yaml
 from cdpc.model import Diagnostic
 from cdpc import param_rules
-from cdpc.schema import references, example_request
-
-
-def contract_data(contract, inventory=None):
-    data = {'version': 2, 'types': {}, 'methods': {}, 'events': {}, 'examples': [],
-            'unsupported': {'methods': [], 'events': []}}
-    if inventory is not None:
-        data['registeredMethods'] = sorted(inventory.methods)
-    def include(schema):
-        for ref in references(schema):
-            if ref not in data['types']:
-                data['types'][ref] = contract.types[ref]
-                include(contract.types[ref])
-    for entry in sorted(contract.entries.values(), key=lambda entry: (entry.name, entry.kind)):
-        if not entry.supported:
-            data['unsupported']['methods' if entry.kind == 'method' else 'events'].append(entry.name)
-            continue
-        out = {'params': entry.params}
-        include(entry.params)
-        if entry.kind == 'method':
-            out['returns'] = entry.returns
-            include(entry.returns)
-        data['methods' if entry.kind == 'method' else 'events'][entry.name] = out
-        for example in entry.examples:
-            if isinstance(example, dict):
-                if entry.document.get('capture') == 'safe' and 'request' in example:
-                    example = {**example, 'request': example_request(example['request'])}
-                event = example.get('event', example.get('response'))
-                if isinstance(event, dict) and 'method' in event and 'id' not in event:
-                    dependency = contract.get('event', event['method'])
-                    if dependency is None or not dependency.supported:
-                        continue
-                data['examples'].append({'entry': entry.name, **example})
-    return data
+from cdpc_core.emit import contract_data, write
 
 
 def manifest(repo, contract, inventory):
@@ -85,26 +49,3 @@ def generate(repo, contract, inventory):
 def check(repo, outputs):
     return [Diagnostic(repo.relative(path), 1, 'E301', 'generated file is missing or stale; run tools/cdpc write')
             for path, text in outputs.items() if not path.exists() or path.read_text() != text]
-
-
-def write(outputs, dry_run=False, print_diff=True):
-    updated = []
-    for path, text in outputs.items():
-        before = path.read_text() if path.exists() else ''
-        if before == text:
-            continue
-        updated.append(str(path))
-        if dry_run:
-            if print_diff:
-                print(''.join(difflib.unified_diff(before.splitlines(True), text.splitlines(True), fromfile=str(path), tofile=str(path))), end='')
-        else:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            fd, temporary = tempfile.mkstemp(dir=path.parent, prefix='.' + path.name)
-            try:
-                with os.fdopen(fd, 'w', encoding='utf-8') as out:
-                    out.write(text)
-                os.replace(temporary, path)
-            finally:
-                if os.path.exists(temporary):
-                    os.unlink(temporary)
-    return updated

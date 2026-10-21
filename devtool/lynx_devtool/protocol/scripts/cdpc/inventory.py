@@ -3,30 +3,21 @@
 # LICENSE file in the root directory of this source tree.
 
 """Source registration inventory; scans are evidence of registration, not execution."""
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from pathlib import Path
 import re
 import yaml
 
-from cdpc.model import Contract, Diagnostic, Repo, entry_key
+from cdpc.model import Contract, Diagnostic, Repo
+from cdpc_core.inventory import Inventory as CoreInventory, Registration, complete, check as check_core
 
 ENGINE_DOMAINS = {'Debugger', 'Runtime', 'Profiler', 'HeapProfiler'}
 METHOD = r'[A-Za-z][A-Za-z0-9]*\.[A-Za-z][A-Za-z0-9_]*'
 
 
-@dataclass(frozen=True)
-class Registration:
-    name: str
-    file: str
-    line: int
-
-
 @dataclass
-class Inventory:
-    methods: dict[str, Registration] = field(default_factory=dict)
-    events: dict[str, Registration] = field(default_factory=dict)
+class Inventory(CoreInventory):
     scopes: dict[str, str] = field(default_factory=dict)
-    problems: list[Diagnostic] = field(default_factory=list)
     version: str = '0.0'
     primjs_missing: bool = False
 
@@ -80,6 +71,7 @@ def scan(repo: Repo, contract: Contract, strict=False) -> Inventory:
             add(primjs, match.group(1), func.end() + match.start(), text, result.methods)
     else:
         result.primjs_missing = True
+        result.unverified_domains = set(ENGINE_DOMAINS)
         result.problems.append(Diagnostic(repo.relative(primjs), 1, 'E403',
             'PrimJS source missing; its registration inventory is unverified; run tools/hab sync .',
             severity='error' if strict else 'warning'))
@@ -131,36 +123,5 @@ def scan(repo: Repo, contract: Contract, strict=False) -> Inventory:
     return result
 
 
-def complete(contract: Contract, inventory: Inventory) -> Contract:
-    entries = dict(contract.entries)
-    selected = [('method', name) for name in inventory.methods] + [('event', name) for name in inventory.events]
-    for entry in contract.entries.values():
-        for ref in entry.document.get('events', []):
-            selected.append(('event', ref.get('name') if isinstance(ref, dict) else ref))
-        for example in entry.examples:
-            if not isinstance(example, dict):
-                continue
-            for key in ('event', 'response'):
-                value = example.get(key)
-                if isinstance(value, dict) and 'method' in value and 'id' not in value:
-                    selected.append(('event', value['method']))
-    for kind, name in selected:
-        key = entry_key(kind, name)
-        if key not in entries and key in contract.upstream_entries:
-            entries[key] = contract.upstream_entries[key]
-    return replace(contract, entries=entries)
-
-
 def check(repo, contract, inventory):
-    problems = list(inventory.problems)
-    for name, registration in inventory.methods.items():
-        if contract.get('method', name) is None:
-            problems.append(Diagnostic(registration.file, registration.line, 'E401',
-                f'{name} is registered but has no contract', name))
-    for entry in contract.entries.values():
-        if entry.kind == 'method' and entry.source and entry.name not in inventory.methods:
-            if inventory.primjs_missing and entry.name.split('.')[0] in ENGINE_DOMAINS:
-                continue
-            problems.append(Diagnostic(repo.relative(entry.source), 1, 'E402',
-                f'{entry.name} has a local contract but is not registered', entry.name))
-    return problems
+    return check_core(repo, contract, inventory)

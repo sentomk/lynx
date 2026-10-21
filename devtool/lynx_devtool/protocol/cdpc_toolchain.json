@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "repository": "git@code.byted.org:lynx/cdpc.git",
+  "revision": "e1792262e754edd783b15ff61ce97f868d9ed508",
+  "tool_version": "0.1.0",
+  "contract_format": 2,
+  "descriptor_format": 1
+}

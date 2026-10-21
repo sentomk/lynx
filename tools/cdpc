@@ -10,4 +10,4 @@ set -e
 LYNX_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPTS="${LYNX_ROOT}/devtool/lynx_devtool/protocol/scripts"
 export PYTHONPATH="${SCRIPTS}${PYTHONPATH:+:${PYTHONPATH}}"
-exec "${LYNX_ROOT}/tools/env.sh" python3 -m cdpc "$@"
+exec "${LYNX_ROOT}/tools/env.sh" python3 -m cdpc_toolchain "$@"

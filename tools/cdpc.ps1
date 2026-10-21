@@ -7,5 +7,5 @@
 $LynxRoot = Split-Path -Parent $PSScriptRoot
 $Scripts = Join-Path $LynxRoot "devtool\lynx_devtool\protocol\scripts"
 $env:PYTHONPATH = if ($env:PYTHONPATH) { "$Scripts;$env:PYTHONPATH" } else { $Scripts }
-& (Join-Path $PSScriptRoot "env.ps1") python -m cdpc @args
+& (Join-Path $PSScriptRoot "env.ps1") python -m cdpc_toolchain @args
 exit $LASTEXITCODE
