@@ -18,14 +18,17 @@ returns:
     description: Editable UI properties exposed by the platform helper.
   - name: 'editableProps.border'
     type: array
+    items: {type: number}
     optional: true
     description: Four border-width values in the order top, right, bottom, and left.
   - name: 'editableProps.margin'
     type: array
+    items: {type: number}
     optional: true
     description: Four margin values in the order top, right, bottom, and left.
   - name: 'editableProps.frame'
     type: array
+    items: {type: number}
     optional: true
     description: Four frame values in the order left, top, width, and height.
   - name: 'editableProps.visible'

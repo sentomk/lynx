@@ -6,6 +6,8 @@ returns:
     description: Whether the current template has a default data processor closure.
   - name: processMapKeys
     type: array
+    items: {type: string}
+    optional: true
     description: Names of registered data processor entries. This field is omitted when the processor map is empty.
 events: []
 notes:

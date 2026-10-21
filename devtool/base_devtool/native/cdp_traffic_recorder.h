@@ -18,7 +18,8 @@ namespace devtool {
 class CDPTrafficRecorder : public CDPTrafficObserver {
  public:
   static std::shared_ptr<CDPTrafficRecorder> Open(
-      const std::string& path, size_t max_message_bytes = 1024 * 1024);
+      const std::string& path, size_t max_message_bytes = 1024 * 1024,
+      size_t max_queued_lines = 10000);
   ~CDPTrafficRecorder() override;
   void OnIncomingMessage(const void* channel,
                          const Json::Value& message) override;

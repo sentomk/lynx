@@ -4,10 +4,11 @@
 
 """Six commands over the same contract model; no source mutations."""
 import argparse
-from dataclasses import asdict
+from dataclasses import asdict, replace
 import json
 from pathlib import Path
 import sys
+import yaml
 
 from cdpc import emit, inventory, lint, model, trace, scaffold, upstream
 
@@ -30,6 +31,7 @@ def parser():
     check.add_argument('--strict', action='store_true', help='fail when PrimJS sources are missing')
     write = commands.add_parser('write', help='regenerate the manifest and supported contract JSON')
     write.add_argument('--dry-run', action='store_true')
+    write.add_argument('--allow-unsupported', action='store_true', help='temporarily allow omitted unsupported entries')
     show = commands.add_parser('show', help='inspect domains, entries or one effective contract')
     show.add_argument('target', nargs='?')
     verify = commands.add_parser('verify', help='check recorded JSONL traffic against YAML')
@@ -129,6 +131,13 @@ def main(argv=None):
             # excluded as whole entries. Never publish an invented `any` fallback.
             updated = emit.write(outputs, args.dry_run, print_diff=args.format == 'text')
             omitted = sum(not entry.supported for entry in contract.entries.values())
+            unsupported = {entry.name for entry in contract.entries.values() if not entry.supported}
+            for entry in contract.entries.values():
+                if not entry.supported:
+                    problems.append(model.Diagnostic(repo.relative(entry.source or repo.upstream), 1, 'E104',
+                        f'unsupported {entry.kind} omitted: {entry.name}', entry.name))
+            if args.allow_unsupported:
+                problems = [replace(p, severity='warning') if p.entry in unsupported else p for p in problems]
             summary = f'cdpc write: {"would update" if args.dry_run else "updated"} {len(updated)} files; {omitted} unsupported entries omitted'
         else:
             problems += inventory.check(repo, contract, sources)
@@ -137,7 +146,7 @@ def main(argv=None):
             summary = f'cdpc check: {sum(p.severity == "error" for p in problems)} errors, {sum(p.severity == "warning" for p in problems)} warnings'
         return output(problems, summary, args.format,
                       **({'files': updated} if args.command == 'write' else {}))
-    except (OSError, ValueError, KeyError, TypeError) as error:
+    except (OSError, ValueError, yaml.YAMLError) as error:
         output([model.Diagnostic('', 1, 'ENV', str(error))], f'cdpc {args.command}: environment or input error', args.format)
         return 2
 

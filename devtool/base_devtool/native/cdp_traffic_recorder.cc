@@ -34,8 +34,9 @@ Json::Value Envelope(const void* channel, const char* direction) {
 }  // namespace
 
 struct CDPTrafficRecorder::Writer {
-  explicit Writer(const std::string& path)
-      : file(path, std::ios::out | std::ios::trunc) {}
+  Writer(const std::string& path, size_t max_lines)
+      : file(path, std::ios::out | std::ios::trunc),
+        max_queued_lines(max_lines) {}
   ~Writer() {
     {
       std::lock_guard<std::mutex> lock(mutex);
@@ -47,6 +48,11 @@ struct CDPTrafficRecorder::Writer {
   void Enqueue(std::string line) {
     {
       std::lock_guard<std::mutex> lock(mutex);
+      if (lines.size() >= max_queued_lines) {
+        if (++dropped_messages == 1)
+          LOGW("CDP trace queue full; dropping new records");
+        return;
+      }
       lines.push_back(std::move(line));
     }
     ready.notify_one();
@@ -57,7 +63,7 @@ struct CDPTrafficRecorder::Writer {
       {
         std::unique_lock<std::mutex> lock(mutex);
         ready.wait(lock, [&] { return closing || !lines.empty(); });
-        if (lines.empty()) return;
+        if (lines.empty()) break;
         line = std::move(lines.front());
         lines.pop_front();
       }
@@ -68,19 +74,28 @@ struct CDPTrafficRecorder::Writer {
         LOGW("CDP trace write failed; subsequent records cannot be persisted");
       }
     }
+    if (dropped_messages) {
+      auto row = Envelope(nullptr, "stats");
+      row["dropped_messages"] = Json::UInt64(dropped_messages);
+      file << Json::FastWriter().write(row);
+      file.flush();
+    }
   }
   std::ofstream file;
   std::mutex mutex;
   std::condition_variable ready;
   std::deque<std::string> lines;
+  const size_t max_queued_lines;
+  uint64_t dropped_messages = 0;
   bool closing = false;
   bool failed = false;
   std::thread worker;
 };
 
 std::shared_ptr<CDPTrafficRecorder> CDPTrafficRecorder::Open(
-    const std::string& path, size_t max_message_bytes) {
-  auto writer = std::make_unique<Writer>(path);
+    const std::string& path, size_t max_message_bytes,
+    size_t max_queued_lines) {
+  auto writer = std::make_unique<Writer>(path, max_queued_lines);
   if (!writer->file) return nullptr;
   writer->worker = std::thread([state = writer.get()] { state->Run(); });
   return std::shared_ptr<CDPTrafficRecorder>(
@@ -95,17 +110,22 @@ void CDPTrafficRecorder::Record(const void* channel, const char* direction,
                                 const Json::Value& message) {
   Json::FastWriter json;
   auto row = Envelope(channel, direction);
-  if (json.write(message).size() > max_message_bytes_) {
+  std::string payload = json.write(message);
+  if (payload.size() > max_message_bytes_) {
     Json::Value metadata(Json::objectValue);
     for (const auto* key : {"method", "id"})
       if (message.isObject() && message.isMember(key))
         metadata[key] = message[key];
-    row["message"] = std::move(metadata);
+    payload = json.write(metadata);
     row["truncated"] = true;
-  } else {
-    row["message"] = message;
   }
-  writer_->Enqueue(json.write(row));
+  // FastWriter ends each JSON value with a newline. Reuse the serialized
+  // payload verbatim inside the envelope; never serialize the message twice.
+  payload.pop_back();
+  std::string envelope = json.write(row);
+  envelope.resize(envelope.size() -
+                  2);  // Remove the closing brace and newline.
+  writer_->Enqueue(envelope + ",\"message\":" + payload + "}\n");
 }
 void CDPTrafficRecorder::OnIncomingMessage(const void* channel,
                                            const Json::Value& message) {

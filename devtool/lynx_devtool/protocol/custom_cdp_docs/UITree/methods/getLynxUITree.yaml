@@ -33,10 +33,12 @@ returns:
     description: Accessibility label when the platform includes it.
   - name: 'root.frame'
     type: array
+    items: {type: number}
     optional: true
     description: Four numeric values for the UI frame. The order is left, top, width, and height.
   - name: 'root.children'
     type: array
+    items: {type: object}
     optional: true
     description: Child UI nodes serialized with the same platform-owned shape.
 events: []

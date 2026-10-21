@@ -139,6 +139,23 @@ TEST_F(ContractCheckerTest, DuplicateAndChannelIsolation) {
   EXPECT_EQ(violations[0].method, "Lynx.getLogLevel");
   EXPECT_EQ(violations[0].id, 1);
 }
+TEST_F(ContractCheckerTest, UnsupportedIsDistinctFromUnknown) {
+  checker->OnIncomingMessage(this, Request("Unsupported.method"));
+  checker->OnOutgoingMessage(this, Parse(R"({"id":1,"result":{}})"));
+  checker->OnOutgoingMessage(this, Parse(R"({"method":"Unsupported.event"})"));
+  checker->Flush();
+  ASSERT_EQ(violations.size(), 2u);
+  EXPECT_EQ(violations[0].kind, Kind::kUnsupportedContract);
+  EXPECT_EQ(violations[1].kind, Kind::kUnsupportedContract);
+}
+TEST(ContractSchemaTest, VersionAndRootViolationAreRequired) {
+  auto schema = Parse(protocol::CaseContractJson());
+  schema["version"] = 1;
+  EXPECT_EQ(ContractChecker::Create(schema.toStyledString(), {}), nullptr);
+  schema["version"] = 2;
+  schema["methods"]["Types.root"]["returns"].removeMember("violation");
+  EXPECT_EQ(ContractChecker::Create(schema.toStyledString(), {}), nullptr);
+}
 TEST_F(ContractCheckerTest, DroppedResponseIsReportedOnlyOnce) {
   checker->OnIncomingMessage(this, Request());
   checker->OnResponseDropped(this, 1);
@@ -178,7 +195,7 @@ TEST(ContractSchemaTest, InvalidSchemaAndReferencesAreRejected) {
 }
 TEST(ContractSchemaTest, RecursiveReferencesAndOptionalFields) {
   auto schema = Parse(
-      R"({"version":1,"types":{"Node":{"type":"object","properties":{"label":{"schema":{"type":"string"}},"next":{"schema":{"ref":"Node"},"optional":true}}}},"methods":{"Node.get":{"params":{"type":"object","properties":{}},"returns":{"type":"object","properties":{"root":{"schema":{"ref":"Node"}}}}}},"events":{}})");
+      R"({"version":2,"unsupported":{"methods":[],"events":[]},"types":{"Node":{"type":"object","properties":{"label":{"schema":{"type":"string"}},"next":{"schema":{"ref":"Node"},"optional":true}}}},"methods":{"Node.get":{"params":{"type":"object","properties":{}},"returns":{"type":"object","properties":{"root":{"schema":{"ref":"Node"}}}}}},"events":{}})");
   std::vector<ContractViolation> violations;
   auto checker = ContractChecker::Create(
       schema.toStyledString(), [&](const auto& v) { violations.push_back(v); });

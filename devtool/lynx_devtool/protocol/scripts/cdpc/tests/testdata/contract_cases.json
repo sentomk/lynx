@@ -74,5 +74,151 @@
     "value": {
       "future": true
     }
+  },
+  {
+    "direction": "result",
+    "name": "nullable string",
+    "problems": [],
+    "schema_entry": "Types.union",
+    "value": {
+      "text": null,
+      "value": null
+    }
+  },
+  {
+    "direction": "result",
+    "name": "union order",
+    "problems": [
+      "result.text: expected string|null"
+    ],
+    "schema_entry": "Types.union",
+    "value": {
+      "text": 3,
+      "value": null
+    }
+  },
+  {
+    "direction": "result",
+    "name": "union enum",
+    "problems": [
+      "result.text: 'bad' is not an allowed value"
+    ],
+    "schema_entry": "Types.union",
+    "value": {
+      "text": "bad",
+      "value": null
+    }
+  },
+  {
+    "direction": "result",
+    "name": "union object",
+    "problems": [
+      "result.value.id: expected integer"
+    ],
+    "schema_entry": "Types.union",
+    "value": {
+      "text": "ok",
+      "value": {
+        "id": "bad"
+      }
+    }
+  },
+  {
+    "direction": "result",
+    "name": "union array",
+    "problems": [
+      "result.value[0]: expected integer"
+    ],
+    "schema_entry": "Types.union",
+    "value": {
+      "text": null,
+      "value": [
+        false
+      ]
+    }
+  },
+  {
+    "direction": "result",
+    "name": "union mismatch",
+    "problems": [
+      "result.value: expected object|array|null"
+    ],
+    "schema_entry": "Types.union",
+    "value": {
+      "text": null,
+      "value": false
+    }
+  },
+  {
+    "direction": "result",
+    "name": "map values",
+    "problems": [
+      "result.image.sizeBytes: expected integer"
+    ],
+    "schema_entry": "Types.map",
+    "value": {
+      "fixed": "ok",
+      "image": {
+        "sizeBytes": "1"
+      }
+    }
+  },
+  {
+    "direction": "result",
+    "name": "map fixed precedence",
+    "problems": [
+      "result.fixed: expected string"
+    ],
+    "schema_entry": "Types.map",
+    "value": {
+      "fixed": 2,
+      "image": {
+        "sizeBytes": 1
+      }
+    }
+  },
+  {
+    "direction": "result",
+    "name": "map valid",
+    "problems": [],
+    "schema_entry": "Types.map",
+    "value": {
+      "fixed": "ok",
+      "image": {
+        "sizeBytes": 1
+      }
+    }
+  },
+  {
+    "direction": "result",
+    "name": "scalar root",
+    "problems": [
+      "result: expected string"
+    ],
+    "schema_entry": "Types.root",
+    "value": 3
+  },
+  {
+    "direction": "result",
+    "name": "valid scalar root",
+    "problems": [],
+    "schema_entry": "Types.root",
+    "value": "4.1"
+  },
+  {
+    "direction": "event",
+    "name": "null root event",
+    "problems": [],
+    "schema_entry": "Types.root",
+    "value": null
+  },
+  {
+    "direction": "event",
+    "name": "invalid root event",
+    "problems": [
+      "params: expected string|null"
+    ],
+    "schema_entry": "Types.root",
+    "value": {}
   }
 ]

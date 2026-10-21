@@ -46,8 +46,8 @@ notes: []
 ```
 
 Supported types are `string`, `integer`, `number`, `boolean`, `object`, `array`,
-and `any`; `$ref` names an upstream type. Unqualified references use the current
-domain. String enums are lists of distinct strings. Fields are required unless
+`null`, and `any`; `$ref` names an upstream type. Unqualified references use the current
+domain. Unions use `|` (for example `string|null`) and preserve type order. String enums are lists of distinct strings. Fields are required unless
 `optional: true` is present. Arrays require `items` or nested item declarations.
 
 ```yaml
@@ -64,8 +64,11 @@ parameters:
 Nested parents must be declared before their children. A bare `object` accepts
 business-defined fields, while an object with declared properties checks them.
 Requests allow unknown fields; results and event params reject unknown fields.
-Absent or null **params envelopes** are treated as an empty object, independently
-of the field type system. Params and returns schemas themselves must be objects.
+Absent or null object **params envelopes** are treated as an empty object.
+Non-object roots require a `non-object-root` violation in `cdp_support.yaml`;
+registered roots retain their actual JSON value and produce a warning. A stale
+registration fails with E502. Dynamic `<key>` fields generate an object `values`
+schema; fixed properties take precedence over dynamic keys.
 
 Local field declarations override upstream declarations; unspecified upstream
 fields remain. `cdp_support.yaml` applies `added`, `omitted`, or `retyped` field
@@ -85,13 +88,12 @@ identified in sources/examples, and deviations, plus recursively referenced
 types. It does not export the entire upstream protocol. Method and event entries
 with the same full name remain separate.
 
-Existing union declarations (`string|integer`, `array|null`), scalar roots, and
-dynamic property names are outside this schema model. They produce diagnostics.
-They are preserved in YAML, and whole unsupported entries are omitted from the
-JSON. `write` reports the omission count and exits 1; `check` also fails on these
-source issues. This means the C++ checker covers the supported catalog only.
-No unsupported declaration is widened to `any` automatically. When a trace uses
-an unsupported entry, `verify` reports E102; a C++ checker sees an unknown entry.
+Contract JSON version 2 represents unions as type lists, maps with `values`, and
+registered non-object roots with `violation: non-object-root`. Whole unsupported
+entries are recorded in `unsupported.methods/events` and omitted from the active
+schemas. `write` names every omitted entry and exits 1, unless explicitly given
+`--allow-unsupported`. Both C++ and offline verification report
+`kUnsupportedContract`; unknown names still report `kUnknownMethod/Event`.
 
 ## CLI
 

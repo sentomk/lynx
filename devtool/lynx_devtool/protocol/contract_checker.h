@@ -26,6 +26,7 @@ struct ContractViolation {
     kInvalidResult,
     kInvalidError,
     kInvalidEvent,
+    kUnsupportedContract,
     kUnknownMethod,
     kUnknownEvent,
     kDuplicateResponse,

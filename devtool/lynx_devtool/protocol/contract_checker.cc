@@ -3,6 +3,7 @@
 // LICENSE file in the root directory of this source tree.
 #include "devtool/lynx_devtool/protocol/contract_checker.h"
 
+#include <algorithm>
 #include <set>
 #include <utility>
 
@@ -15,14 +16,20 @@ namespace {
 constexpr size_t kMaxPending = 4096;
 struct Schema {
   std::string type;
+  std::vector<std::string> types;
+  bool root_violation = false;
+  bool HasType(const std::string& name) const {
+    return std::find(types.begin(), types.end(), name) != types.end();
+  }
   std::string ref_name;
   const Schema* ref = nullptr;  // Owned by Contract::types, never owns a cycle.
   std::unique_ptr<Schema> items;
+  std::unique_ptr<Schema> values;
   std::map<std::string, std::unique_ptr<Schema>> properties;
   std::set<std::string> optional;
   bool has_properties = false;
   bool has_enum = false;
-  std::set<std::string> values;
+  std::set<std::string> enum_values;
 };
 
 std::unique_ptr<Schema> ParseSchema(const Json::Value& value, int depth = 0) {
@@ -33,27 +40,44 @@ std::unique_ptr<Schema> ParseSchema(const Json::Value& value, int depth = 0) {
     schema->ref_name = value["ref"].asString();
     return schema;
   }
-  if (!value["type"].isString()) return nullptr;
-  schema->type = value["type"].asString();
-  static const std::set<std::string> kinds = {
-      "string", "integer", "number", "boolean", "object", "array", "any"};
-  if (!kinds.count(schema->type)) return nullptr;
+  static const std::set<std::string> kinds = {"string",  "integer", "number",
+                                              "boolean", "object",  "array",
+                                              "any",     "null"};
+  Json::Value types = value["type"];
+  if (types.isString()) {
+    types = Json::Value(Json::arrayValue);
+    types.append(value["type"]);
+  }
+  if (!types.isArray() || types.empty()) return nullptr;
+  for (const auto& type : types) {
+    if (!type.isString() || !kinds.count(type.asString()) ||
+        schema->HasType(type.asString()))
+      return nullptr;
+    if (!schema->type.empty()) schema->type += "|";
+    schema->type += type.asString();
+    schema->types.push_back(type.asString());
+  }
+  if (value.isMember("violation")) {
+    if (value["violation"] != "non-object-root") return nullptr;
+    schema->root_violation = true;
+  }
   if (value.isMember("enum")) {
-    if (schema->type != "string" || !value["enum"].isArray() ||
+    if (!schema->HasType("string") || !value["enum"].isArray() ||
         value["enum"].empty())
       return nullptr;
     schema->has_enum = true;
     for (const auto& item : value["enum"]) {
-      if (!item.isString() || !schema->values.insert(item.asString()).second)
+      if (!item.isString() ||
+          !schema->enum_values.insert(item.asString()).second)
         return nullptr;
     }
   }
-  if (schema->type == "array") {
+  if (schema->HasType("array")) {
     schema->items = ParseSchema(value["items"], depth + 1);
     if (!schema->items) return nullptr;
   }
   if (value.isMember("properties")) {
-    if (schema->type != "object" || !value["properties"].isObject())
+    if (!schema->HasType("object") || !value["properties"].isObject())
       return nullptr;
     schema->has_properties = true;
     for (const auto& name : value["properties"].getMemberNames()) {
@@ -68,6 +92,11 @@ std::unique_ptr<Schema> ParseSchema(const Json::Value& value, int depth = 0) {
       schema->properties.emplace(name, std::move(child));
     }
   }
+  if (value.isMember("values")) {
+    if (!schema->HasType("object")) return nullptr;
+    schema->values = ParseSchema(value["values"], depth + 1);
+    if (!schema->values) return nullptr;
+  }
   return schema;
 }
 
@@ -78,6 +107,7 @@ bool Resolve(Schema* schema,
     if (found == types.end()) return false;
     schema->ref = found->second.get();
   }
+  if (schema->values && !Resolve(schema->values.get(), types)) return false;
   if (schema->items && !Resolve(schema->items.get(), types)) return false;
   for (auto& property : schema->properties) {
     if (!Resolve(property.second.get(), types)) return false;
@@ -99,28 +129,29 @@ void Check(const Schema& schema, const Json::Value& value, bool strict,
     Check(*schema.ref, value, strict, path, problems, depth + 1);
     return;
   }
-  const auto& type = schema.type;
-  if (type == "any") return;
-  const bool valid = (type == "string" && value.isString()) ||
-                     (type == "integer" && value.isIntegral()) ||
-                     (type == "number" && value.isNumeric()) ||
-                     (type == "boolean" && value.isBool()) ||
-                     (type == "object" && value.isObject()) ||
-                     (type == "array" && value.isArray());
+  const bool valid = schema.HasType("any") ||
+                     (schema.HasType("null") && value.isNull()) ||
+                     (schema.HasType("string") && value.isString()) ||
+                     (schema.HasType("integer") && value.isIntegral()) ||
+                     (schema.HasType("number") && value.isNumeric()) ||
+                     (schema.HasType("boolean") && value.isBool()) ||
+                     (schema.HasType("object") && value.isObject()) ||
+                     (schema.HasType("array") && value.isArray());
   if (!valid) {
-    error("expected " + type);
+    error("expected " + schema.type);
     return;
   }
-  if (schema.has_enum && !schema.values.count(value.asString())) {
+  if (value.isString() && schema.has_enum &&
+      !schema.enum_values.count(value.asString())) {
     error("'" + value.asString() + "' is not an allowed value");
   }
-  if (type == "array") {
+  if (value.isArray() && schema.items) {
     for (Json::ArrayIndex i = 0; i < value.size(); ++i) {
       Check(*schema.items, value[i], strict,
             path + "[" + std::to_string(i) + "]", problems, depth + 1);
     }
   }
-  if (schema.has_properties) {
+  if (value.isObject() && (schema.has_properties || schema.values)) {
     for (const auto& property : schema.properties) {
       const auto field = path + "." + property.first;
       if (!value.isMember(property.first)) {
@@ -131,16 +162,21 @@ void Check(const Schema& schema, const Json::Value& value, bool strict,
               depth + 1);
       }
     }
-    if (strict)
-      for (const auto& name : value.getMemberNames()) {
-        if (!schema.properties.count(name))
-          problems->push_back(path + "." + name + ": unexpected field");
-      }
+    for (const auto& name : value.getMemberNames()) {
+      if (schema.properties.count(name)) continue;
+      if (schema.values)
+        Check(*schema.values, value[name], strict, path + "." + name, problems,
+              depth + 1);
+      else if (strict)
+        problems->push_back(path + "." + name + ": unexpected field");
+    }
   }
 }
-const Json::Value& Params(const Json::Value& message) {
+const Json::Value& Params(const Schema& schema, const Json::Value& message) {
   static const Json::Value empty(Json::objectValue);
-  return message["params"].isNull() ? empty : message["params"];
+  return schema.type == "object" && message["params"].isNull()
+             ? empty
+             : message["params"];
 }
 }  // namespace
 
@@ -152,11 +188,12 @@ struct ContractChecker::Contract {
   std::map<std::string, std::unique_ptr<Schema>> types;
   std::map<std::string, Method> methods;
   std::map<std::string, std::unique_ptr<Schema>> events;
+  std::set<std::string> unsupported_methods, unsupported_events;
   static std::shared_ptr<const Contract> Parse(std::string_view json) {
     Json::Value root;
     Json::Reader reader;
     if (!reader.parse(json.data(), json.data() + json.size(), root, false) ||
-        !root.isObject() || root.get("version", 0) != 1 ||
+        !root.isObject() || root.get("version", 0) != 2 ||
         !root["types"].isObject() || !root["methods"].isObject() ||
         !root["events"].isObject())
       return nullptr;
@@ -174,7 +211,8 @@ struct ContractChecker::Contract {
       Method method{ParseSchema(entry["params"]),
                     ParseSchema(entry["returns"])};
       if (!method.params || !method.returns ||
-          method.params->type != "object" || method.returns->type != "object")
+          (method.params->type != "object" && !method.params->root_violation) ||
+          (method.returns->type != "object" && !method.returns->root_violation))
         return nullptr;
       all.push_back(method.params.get());
       all.push_back(method.returns.get());
@@ -183,9 +221,23 @@ struct ContractChecker::Contract {
     for (const auto& name : root["events"].getMemberNames()) {
       if (!root["events"][name].isObject()) return nullptr;
       auto schema = ParseSchema(root["events"][name]["params"]);
-      if (!schema || schema->type != "object") return nullptr;
+      if (!schema || (schema->type != "object" && !schema->root_violation))
+        return nullptr;
       all.push_back(schema.get());
       contract->events.emplace(name, std::move(schema));
+    }
+    if (!root["unsupported"].isObject()) return nullptr;
+    for (const auto& kind : {"methods", "events"}) {
+      const auto& names = root["unsupported"][kind];
+      if (!names.isArray()) return nullptr;
+      auto& destination = std::string(kind) == "methods"
+                              ? contract->unsupported_methods
+                              : contract->unsupported_events;
+      for (const auto& name : names) {
+        if (!name.isString() || root[kind].isMember(name.asString()) ||
+            !destination.insert(name.asString()).second)
+          return nullptr;
+      }
     }
     for (auto schema : all)
       if (!Resolve(schema, contract->types)) return nullptr;
@@ -212,6 +264,7 @@ const char* ContractViolationKindName(ContractViolation::Kind kind) {
     KIND(kInvalidResult);
     KIND(kInvalidError);
     KIND(kInvalidEvent);
+    KIND(kUnsupportedContract);
     KIND(kUnknownMethod);
     KIND(kUnknownEvent);
     KIND(kDuplicateResponse);
@@ -284,12 +337,19 @@ void ContractChecker::OnIncomingMessage(const void* channel,
     if (reporter_) reporter_(violation);
   auto found = contract_->methods.find(method);
   if (found == contract_->methods.end()) {
-    Report(ContractViolation::Kind::kUnknownMethod, method, id,
-           {"method has no contract"});
+    Report(
+        contract_->unsupported_methods.count(method)
+            ? ContractViolation::Kind::kUnsupportedContract
+            : ContractViolation::Kind::kUnknownMethod,
+        method, id,
+        {contract_->unsupported_methods.count(method)
+             ? "contract uses an unsupported schema; run cdpc check " + method
+             : "method has no contract"});
     return;
   }
   std::vector<std::string> problems;
-  Check(*found->second.params, Params(message), false, "params", &problems);
+  Check(*found->second.params, Params(*found->second.params, message), false,
+        "params", &problems);
   if (!problems.empty())
     Report(ContractViolation::Kind::kInvalidParams, method, id,
            std::move(problems));
@@ -302,12 +362,19 @@ void ContractChecker::OnOutgoingMessage(const void* channel,
     const auto method = message["method"].asString();
     auto found = contract_->events.find(method);
     if (found == contract_->events.end()) {
-      Report(ContractViolation::Kind::kUnknownEvent, method, 0,
-             {"event has no contract"});
+      Report(
+          contract_->unsupported_events.count(method)
+              ? ContractViolation::Kind::kUnsupportedContract
+              : ContractViolation::Kind::kUnknownEvent,
+          method, 0,
+          {contract_->unsupported_events.count(method)
+               ? "contract uses an unsupported schema; run cdpc check " + method
+               : "event has no contract"});
       return;
     }
     std::vector<std::string> problems;
-    Check(*found->second, Params(message), true, "params", &problems);
+    Check(*found->second, Params(*found->second, message), true, "params",
+          &problems);
     if (!problems.empty())
       Report(ContractViolation::Kind::kInvalidEvent, method, 0,
              std::move(problems));

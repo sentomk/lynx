@@ -36,6 +36,9 @@ class CDPTrafficObserver {
 
 // Installs the process-wide observer. Pass nullptr to remove it.
 void SetCDPTrafficObserver(std::shared_ptr<CDPTrafficObserver> observer);
+// Atomically replace the observer and return the previous one for restoration.
+std::shared_ptr<CDPTrafficObserver> ExchangeCDPTrafficObserver(
+    std::shared_ptr<CDPTrafficObserver> observer);
 bool IsCDPTrafficObserverInstalled();
 // Atomically install only when the slot is empty.
 bool TrySetCDPTrafficObserver(std::shared_ptr<CDPTrafficObserver> observer);

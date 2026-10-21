@@ -13,7 +13,8 @@ from cdpc.schema import references
 
 
 def contract_data(contract):
-    data = {'version': 1, 'types': {}, 'methods': {}, 'events': {}, 'examples': []}
+    data = {'version': 2, 'types': {}, 'methods': {}, 'events': {}, 'examples': [],
+            'unsupported': {'methods': [], 'events': []}}
     def include(schema):
         for ref in references(schema):
             if ref not in data['types']:
@@ -21,6 +22,7 @@ def contract_data(contract):
                 include(contract.types[ref])
     for entry in sorted(contract.entries.values(), key=lambda entry: (entry.name, entry.kind)):
         if not entry.supported:
+            data['unsupported']['methods' if entry.kind == 'method' else 'events'].append(entry.name)
             continue
         out = {'params': entry.params}
         include(entry.params)

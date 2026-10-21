@@ -90,6 +90,15 @@
         "type": "object"
       }
     },
+    "Component.uselessUpdate": {
+      "params": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "violation": "non-object-root"
+      }
+    },
     "DOM.attributeModified": {
       "params": {
         "properties": {
@@ -574,6 +583,28 @@
         "type": "object"
       }
     },
+    "LynxNativeModule.recordAdded": {
+      "params": {
+        "properties": {
+          "record": {
+            "schema": {
+              "properties": {
+                "sequence": {
+                  "schema": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "type": "object",
+              "values": {
+                "type": "any"
+              }
+            }
+          }
+        },
+        "type": "object"
+      }
+    },
     "Network.dataReceived": {
       "params": {
         "properties": {
@@ -877,6 +908,56 @@
         "type": "object"
       }
     },
+    "Recording.recordingComplete": {
+      "params": {
+        "properties": {
+          "filenames": {
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            }
+          },
+          "recordFormat": {
+            "schema": {
+              "enum": [
+                "json",
+                "both",
+                "fixture"
+              ],
+              "type": "string"
+            }
+          },
+          "sessionIDs": {
+            "schema": {
+              "items": {
+                "type": "integer"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            }
+          },
+          "stream": {
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            }
+          }
+        },
+        "type": "object"
+      }
+    },
     "Replay.end": {
       "params": {
         "properties": {
@@ -1143,6 +1224,44 @@
       "title": "Mark selectors as used during tracking"
     },
     {
+      "entry": "Component.uselessUpdate",
+      "event": {
+        "method": "Component.uselessUpdate",
+        "params": {
+          "componentId": "comp-1",
+          "reason": "debug"
+        }
+      },
+      "title": "Echo a component update"
+    },
+    {
+      "entry": "Component.uselessUpdate",
+      "event": {
+        "method": "Component.uselessUpdate",
+        "params": null
+      },
+      "title": "Echo omitted params"
+    },
+    {
+      "entry": "Component.uselessUpdate",
+      "request": {
+        "id": 1,
+        "method": "Component.uselessUpdate",
+        "params": {
+          "componentId": "comp-1",
+          "reason": "debug"
+        }
+      },
+      "response": {
+        "method": "Component.uselessUpdate",
+        "params": {
+          "componentId": "comp-1",
+          "reason": "debug"
+        }
+      },
+      "title": "Echo a component update payload"
+    },
+    {
       "entry": "DOM.disableDomTree",
       "request": {
         "id": 1,
@@ -1215,6 +1334,75 @@
       "title": "Enable DOM tree capture and reload"
     },
     {
+      "entry": "DOM.getDocumentWithBoxModel",
+      "request": {
+        "id": 1,
+        "method": "DOM.getDocumentWithBoxModel"
+      },
+      "response": {
+        "id": 1,
+        "result": {
+          "compress": false,
+          "root": {
+            "attributes": [],
+            "backendNodeId": 1,
+            "box_model": {
+              "border": [
+                0,
+                0,
+                390,
+                0,
+                390,
+                844,
+                0,
+                844
+              ],
+              "content": [
+                0,
+                0,
+                390,
+                0,
+                390,
+                844,
+                0,
+                844
+              ],
+              "height": 844,
+              "margin": [
+                0,
+                0,
+                390,
+                0,
+                390,
+                844,
+                0,
+                844
+              ],
+              "padding": [
+                0,
+                0,
+                390,
+                0,
+                390,
+                844,
+                0,
+                844
+              ],
+              "width": 390
+            },
+            "childNodeCount": 1,
+            "children": [],
+            "localName": "page",
+            "nodeId": 1,
+            "nodeName": "page",
+            "nodeType": 1,
+            "nodeValue": ""
+          }
+        }
+      },
+      "title": "Read the DOM tree with box models"
+    },
+    {
       "entry": "DOM.getOriginalNodeIndex",
       "request": {
         "id": 1,
@@ -1230,6 +1418,27 @@
         }
       },
       "title": "Resolve a DevTool node to its Lynx source index"
+    },
+    {
+      "entry": "DOM.getOriginalNodeSourceInfo",
+      "request": {
+        "id": 1,
+        "method": "DOM.getOriginalNodeSourceInfo",
+        "params": {
+          "nodeId": 42
+        }
+      },
+      "response": {
+        "id": 1,
+        "result": {
+          "debugMetadataUrl": "https://example.com/main.debug-metadata.json",
+          "lazyBundleUrl": null,
+          "nodeId": 42,
+          "nodeIndex": 7,
+          "tag": "view"
+        }
+      },
+      "title": "Read source info for an element node"
     },
     {
       "entry": "DOM.inlineStyleUpdatesFlushed",
@@ -1449,6 +1658,40 @@
       "title": "Perform two touch taps"
     },
     {
+      "entry": "Lynx.getComponentId",
+      "request": {
+        "id": 1,
+        "method": "Lynx.getComponentId",
+        "params": {
+          "nodeId": 42
+        }
+      },
+      "response": {
+        "id": 1,
+        "result": {
+          "componentId": "21"
+        }
+      },
+      "title": "Resolve a component node id"
+    },
+    {
+      "entry": "Lynx.getComponentId",
+      "request": {
+        "id": 2,
+        "method": "Lynx.getComponentId",
+        "params": {
+          "nodeId": 7
+        }
+      },
+      "response": {
+        "id": 2,
+        "result": {
+          "componentId": -1
+        }
+      },
+      "title": "Non-component fallback"
+    },
+    {
       "entry": "Lynx.getData",
       "request": {
         "id": 1,
@@ -1521,6 +1764,18 @@
         "method": "Lynx.getScreenshot"
       },
       "title": "Request a Lynx screenshot"
+    },
+    {
+      "entry": "Lynx.getVersion",
+      "request": {
+        "id": 1,
+        "method": "Lynx.getVersion"
+      },
+      "response": {
+        "id": 1,
+        "result": "1.1.5"
+      },
+      "title": "Read the Lynx version"
     },
     {
       "entry": "Lynx.getViewLocationOnScreen",
@@ -1635,6 +1890,34 @@
         "result": {}
       },
       "title": "Enable live NativeModule records"
+    },
+    {
+      "entry": "LynxNativeModule.getRecords",
+      "request": {
+        "id": 1,
+        "method": "LynxNativeModule.getRecords"
+      },
+      "response": {
+        "id": 1,
+        "result": {
+          "latestSequence": 0,
+          "records": []
+        }
+      },
+      "title": "Read NativeModule history"
+    },
+    {
+      "entry": "LynxNativeModule.recordAdded",
+      "event": {
+        "method": "LynxNativeModule.recordAdded",
+        "params": {
+          "record": {
+            "method": "LynxTestModule.echo",
+            "sequence": 1
+          }
+        }
+      },
+      "title": "Captured invocation"
     },
     {
       "entry": "LynxSetting.clearMockValues",
@@ -1804,6 +2087,25 @@
       "title": "Non-string mock value"
     },
     {
+      "entry": "Memory.getAllMemoryUsage",
+      "request": {
+        "id": 1,
+        "method": "Memory.getAllMemoryUsage"
+      },
+      "title": "Use the platform default timeout"
+    },
+    {
+      "entry": "Memory.getAllMemoryUsage",
+      "request": {
+        "id": 2,
+        "method": "Memory.getAllMemoryUsage",
+        "params": {
+          "timeoutMs": 50000
+        }
+      },
+      "title": "Use an explicit timeout"
+    },
+    {
       "entry": "Memory.startTracing",
       "request": {
         "id": 1,
@@ -1928,6 +2230,57 @@
       "title": "Stop recording"
     },
     {
+      "entry": "Recording.end",
+      "response": {
+        "method": "Recording.recordingComplete",
+        "params": {
+          "filenames": [
+            "/tmp/1001.json"
+          ],
+          "recordFormat": "json",
+          "sessionIDs": [
+            1001
+          ],
+          "stream": [
+            "1"
+          ]
+        }
+      },
+      "title": "Recording complete notification"
+    },
+    {
+      "entry": "Recording.recordingComplete",
+      "event": {
+        "method": "Recording.recordingComplete",
+        "params": {
+          "filenames": [
+            "/tmp/1001.json"
+          ],
+          "recordFormat": "json",
+          "sessionIDs": [
+            1001
+          ],
+          "stream": [
+            "1"
+          ]
+        }
+      },
+      "title": "JSON recording completed"
+    },
+    {
+      "entry": "Recording.recordingComplete",
+      "event": {
+        "method": "Recording.recordingComplete",
+        "params": {
+          "filenames": null,
+          "recordFormat": "json",
+          "sessionIDs": null,
+          "stream": null
+        }
+      },
+      "title": "No output files"
+    },
+    {
       "entry": "Recording.start",
       "request": {
         "id": 1,
@@ -1965,6 +2318,21 @@
       "title": "Replay dump available"
     },
     {
+      "entry": "Replay.end",
+      "request": {
+        "id": 2,
+        "method": "Replay.end",
+        "params": "/tmp/lynx-replay-dump.json"
+      },
+      "response": {
+        "method": "Replay.end",
+        "params": {
+          "stream": "1"
+        }
+      },
+      "title": "End replay and open the dump file"
+    },
+    {
       "entry": "Replay.start",
       "request": {
         "id": 1,
@@ -1993,6 +2361,35 @@
         }
       },
       "title": "Read a template byte range"
+    },
+    {
+      "entry": "Template.templateApi",
+      "request": {
+        "id": 1,
+        "method": "Template.templateApi"
+      },
+      "response": {
+        "id": 1,
+        "result": {
+          "processMapKeys": [
+            "main"
+          ],
+          "useDefault": true
+        }
+      },
+      "title": "Get template processor API info"
+    },
+    {
+      "entry": "Template.templateConfigInfo",
+      "request": {
+        "id": 1,
+        "method": "Template.templateConfigInfo"
+      },
+      "response": {
+        "id": 1,
+        "result": ""
+      },
+      "title": "Get removed template config info"
     },
     {
       "entry": "Template.templateData",
@@ -2104,6 +2501,81 @@
         "result": {}
       },
       "title": "Enable UI tree inspection"
+    },
+    {
+      "entry": "UITree.getLynxUITree",
+      "request": {
+        "id": 1,
+        "method": "UITree.getLynxUITree"
+      },
+      "response": {
+        "id": 1,
+        "result": {
+          "compress": false,
+          "root": {
+            "children": [],
+            "frame": [
+              0,
+              0,
+              390,
+              844
+            ],
+            "id": 1,
+            "label": "",
+            "name": "com.lynx.tasm.behavior.ui.view.UIView",
+            "nodeIndex": 0,
+            "props": {},
+            "tagName": "view"
+          }
+        }
+      },
+      "title": "Read the Lynx UI tree"
+    },
+    {
+      "entry": "UITree.getUIInfoForNode",
+      "request": {
+        "id": 1,
+        "method": "UITree.getUIInfoForNode",
+        "params": {
+          "UINodeId": 42
+        }
+      },
+      "response": {
+        "id": 1,
+        "result": {
+          "editableProps": {
+            "border": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "frame": [
+              0,
+              0,
+              100,
+              50
+            ],
+            "margin": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "visible": true
+          },
+          "id": 42,
+          "ui": {
+            "name": "com.lynx.tasm.behavior.ui.view.UIView",
+            "readonlyProps": {}
+          },
+          "view": {
+            "name": "android.view.View",
+            "readonlyProps": {}
+          }
+        }
+      },
+      "title": "Read UI information for one node"
     },
     {
       "entry": "UITree.setUIStyle",
@@ -3320,6 +3792,157 @@
         "type": "object"
       }
     },
+    "DOM.getDocumentWithBoxModel": {
+      "params": {
+        "properties": {},
+        "type": "object"
+      },
+      "returns": {
+        "properties": {
+          "compress": {
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          "root": {
+            "schema": {
+              "properties": {
+                "attributes": {
+                  "optional": true,
+                  "schema": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "backendNodeId": {
+                  "optional": true,
+                  "schema": {
+                    "type": "integer"
+                  }
+                },
+                "box_model": {
+                  "optional": true,
+                  "schema": {
+                    "properties": {
+                      "border": {
+                        "optional": true,
+                        "schema": {
+                          "items": {
+                            "type": "number"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "content": {
+                        "optional": true,
+                        "schema": {
+                          "items": {
+                            "type": "number"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "height": {
+                        "optional": true,
+                        "schema": {
+                          "type": "number"
+                        }
+                      },
+                      "margin": {
+                        "optional": true,
+                        "schema": {
+                          "items": {
+                            "type": "number"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "padding": {
+                        "optional": true,
+                        "schema": {
+                          "items": {
+                            "type": "number"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "width": {
+                        "optional": true,
+                        "schema": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  }
+                },
+                "childNodeCount": {
+                  "optional": true,
+                  "schema": {
+                    "type": "integer"
+                  }
+                },
+                "children": {
+                  "optional": true,
+                  "schema": {
+                    "items": {
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "localName": {
+                  "optional": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                "nodeId": {
+                  "optional": true,
+                  "schema": {
+                    "type": "integer"
+                  }
+                },
+                "nodeName": {
+                  "optional": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                "nodeType": {
+                  "optional": true,
+                  "schema": {
+                    "type": "integer"
+                  }
+                },
+                "nodeValue": {
+                  "optional": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                "parentId": {
+                  "optional": true,
+                  "schema": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "type": [
+                "object",
+                "string"
+              ]
+            }
+          }
+        },
+        "type": "object"
+      }
+    },
     "DOM.getNodeForLocation": {
       "params": {
         "properties": {
@@ -3387,6 +4010,56 @@
             "optional": true,
             "schema": {
               "type": "integer"
+            }
+          }
+        },
+        "type": "object"
+      }
+    },
+    "DOM.getOriginalNodeSourceInfo": {
+      "params": {
+        "properties": {
+          "nodeId": {
+            "schema": {
+              "type": "integer"
+            }
+          }
+        },
+        "type": "object"
+      },
+      "returns": {
+        "properties": {
+          "debugMetadataUrl": {
+            "optional": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          "lazyBundleUrl": {
+            "optional": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "nodeId": {
+            "optional": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "nodeIndex": {
+            "optional": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "tag": {
+            "optional": true,
+            "schema": {
+              "type": "string"
             }
           }
         },
@@ -4864,6 +5537,31 @@
         "type": "object"
       }
     },
+    "Lynx.getComponentId": {
+      "params": {
+        "properties": {
+          "nodeId": {
+            "schema": {
+              "type": "integer"
+            }
+          }
+        },
+        "type": "object"
+      },
+      "returns": {
+        "properties": {
+          "componentId": {
+            "schema": {
+              "type": [
+                "string",
+                "integer"
+              ]
+            }
+          }
+        },
+        "type": "object"
+      }
+    },
     "Lynx.getData": {
       "params": {
         "properties": {
@@ -4968,6 +5666,16 @@
       "returns": {
         "properties": {},
         "type": "object"
+      }
+    },
+    "Lynx.getVersion": {
+      "params": {
+        "properties": {},
+        "type": "object"
+      },
+      "returns": {
+        "type": "string",
+        "violation": "non-object-root"
       }
     },
     "Lynx.getViewLocationOnScreen": {
@@ -5109,6 +5817,40 @@
         "type": "object"
       }
     },
+    "LynxNativeModule.getRecords": {
+      "params": {
+        "properties": {},
+        "type": "object"
+      },
+      "returns": {
+        "properties": {
+          "latestSequence": {
+            "schema": {
+              "type": "number"
+            }
+          },
+          "records": {
+            "schema": {
+              "items": {
+                "properties": {
+                  "sequence": {
+                    "schema": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "type": "object",
+                "values": {
+                  "type": "any"
+                }
+              },
+              "type": "array"
+            }
+          }
+        },
+        "type": "object"
+      }
+    },
     "LynxSetting.clearMockValues": {
       "params": {
         "properties": {},
@@ -5201,6 +5943,188 @@
         "type": "object"
       },
       "returns": {
+        "type": "object"
+      }
+    },
+    "Memory.getAllMemoryUsage": {
+      "params": {
+        "properties": {
+          "timeoutMs": {
+            "optional": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        },
+        "type": "object"
+      },
+      "returns": {
+        "properties": {
+          "appBytes": {
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "backgroundThreadRuntimeBytes": {
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "collectionDurationMs": {
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "collectionStartMs": {
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "collectionStatus": {
+            "schema": {
+              "enum": [
+                "completed",
+                "timeout"
+              ],
+              "type": "string"
+            }
+          },
+          "collectionTimeoutMs": {
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "completedInstanceCount": {
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "elementBytes": {
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "elementNodeCount": {
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "expectedInstanceCount": {
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "instances": {
+            "schema": {
+              "items": {
+                "properties": {
+                  "backgroundThreadRuntimeBytes": {
+                    "schema": {
+                      "type": "integer"
+                    }
+                  },
+                  "btsRuntimeGroupId": {
+                    "schema": {
+                      "type": "string"
+                    }
+                  },
+                  "elementBytes": {
+                    "schema": {
+                      "type": "integer"
+                    }
+                  },
+                  "elementNodeCount": {
+                    "schema": {
+                      "type": "integer"
+                    }
+                  },
+                  "instanceId": {
+                    "schema": {
+                      "type": "integer"
+                    }
+                  },
+                  "mainThreadRuntimeBytes": {
+                    "schema": {
+                      "type": "integer"
+                    }
+                  },
+                  "pageId": {
+                    "schema": {
+                      "type": "string"
+                    }
+                  },
+                  "totalBytes": {
+                    "schema": {
+                      "type": "integer"
+                    }
+                  },
+                  "url": {
+                    "schema": {
+                      "type": "string"
+                    }
+                  },
+                  "viewBytes": {
+                    "schema": {
+                      "type": "integer"
+                    }
+                  },
+                  "viewDetail": {
+                    "schema": {
+                      "type": "object",
+                      "values": {
+                        "properties": {
+                          "category": {
+                            "schema": {
+                              "type": "string"
+                            }
+                          },
+                          "detail": {
+                            "schema": {
+                              "type": "object"
+                            }
+                          },
+                          "instanceCount": {
+                            "schema": {
+                              "type": "integer"
+                            }
+                          },
+                          "sizeBytes": {
+                            "schema": {
+                              "type": "integer"
+                            }
+                          }
+                        },
+                        "type": "object"
+                      }
+                    }
+                  }
+                },
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "mainThreadRuntimeBytes": {
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "ratioToApp": {
+            "schema": {
+              "type": "number"
+            }
+          },
+          "totalBytes": {
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "viewBytes": {
+            "schema": {
+              "type": "integer"
+            }
+          }
+        },
         "type": "object"
       }
     },
@@ -5900,6 +6824,22 @@
         "type": "object"
       }
     },
+    "Replay.end": {
+      "params": {
+        "type": "string",
+        "violation": "non-object-root"
+      },
+      "returns": {
+        "properties": {
+          "stream": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        },
+        "type": "object"
+      }
+    },
     "Replay.start": {
       "params": {
         "properties": {},
@@ -6512,6 +7452,41 @@
         "type": "object"
       }
     },
+    "Template.templateApi": {
+      "params": {
+        "properties": {},
+        "type": "object"
+      },
+      "returns": {
+        "properties": {
+          "processMapKeys": {
+            "optional": true,
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "useDefault": {
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        },
+        "type": "object"
+      }
+    },
+    "Template.templateConfigInfo": {
+      "params": {
+        "properties": {},
+        "type": "object"
+      },
+      "returns": {
+        "type": "string",
+        "violation": "non-object-root"
+      }
+    },
     "Template.templateData": {
       "params": {
         "properties": {},
@@ -6712,6 +7687,212 @@
       },
       "returns": {
         "properties": {},
+        "type": "object"
+      }
+    },
+    "UITree.getLynxUITree": {
+      "params": {
+        "properties": {},
+        "type": "object"
+      },
+      "returns": {
+        "properties": {
+          "compress": {
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          "root": {
+            "schema": {
+              "properties": {
+                "children": {
+                  "optional": true,
+                  "schema": {
+                    "items": {
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "frame": {
+                  "optional": true,
+                  "schema": {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  }
+                },
+                "id": {
+                  "optional": true,
+                  "schema": {
+                    "type": "integer"
+                  }
+                },
+                "label": {
+                  "optional": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                "name": {
+                  "optional": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                "nodeIndex": {
+                  "optional": true,
+                  "schema": {
+                    "type": "integer"
+                  }
+                },
+                "props": {
+                  "optional": true,
+                  "schema": {
+                    "type": "object"
+                  }
+                },
+                "tagName": {
+                  "optional": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              },
+              "type": [
+                "object",
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "type": "object"
+      }
+    },
+    "UITree.getUIInfoForNode": {
+      "params": {
+        "properties": {
+          "UINodeId": {
+            "schema": {
+              "type": "integer"
+            }
+          }
+        },
+        "type": "object"
+      },
+      "returns": {
+        "properties": {
+          "editableProps": {
+            "optional": true,
+            "schema": {
+              "properties": {
+                "border": {
+                  "optional": true,
+                  "schema": {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  }
+                },
+                "frame": {
+                  "optional": true,
+                  "schema": {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  }
+                },
+                "margin": {
+                  "optional": true,
+                  "schema": {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  }
+                },
+                "visible": {
+                  "optional": true,
+                  "schema": {
+                    "type": [
+                      "boolean",
+                      "integer"
+                    ]
+                  }
+                }
+              },
+              "type": "object"
+            }
+          },
+          "id": {
+            "optional": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "isFlatten": {
+            "optional": true,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          "layers": {
+            "optional": true,
+            "schema": {
+              "type": "object"
+            }
+          },
+          "readonlyProps": {
+            "optional": true,
+            "schema": {
+              "type": "object"
+            }
+          },
+          "ui": {
+            "optional": true,
+            "schema": {
+              "properties": {
+                "name": {
+                  "optional": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                "readonlyProps": {
+                  "optional": true,
+                  "schema": {
+                    "type": "object"
+                  }
+                }
+              },
+              "type": "object"
+            }
+          },
+          "view": {
+            "optional": true,
+            "schema": {
+              "properties": {
+                "name": {
+                  "optional": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                "readonlyProps": {
+                  "optional": true,
+                  "schema": {
+                    "type": "object"
+                  }
+                }
+              },
+              "type": "object"
+            }
+          }
+        },
         "type": "object"
       }
     },
@@ -11891,5 +13072,9 @@
       "type": "string"
     }
   },
-  "version": 1
+  "unsupported": {
+    "events": [],
+    "methods": []
+  },
+  "version": 2
 }

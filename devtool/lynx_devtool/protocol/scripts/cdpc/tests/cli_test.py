@@ -4,11 +4,32 @@
 import contextlib
 import io
 import json
+from pathlib import Path
+import subprocess
+import sys
 from unittest.mock import patch
 from cdpc import __main__ as cli
 from cdpc.tests.support import RepoTest
 
 class CliTest(RepoTest):
+    def test_internal_keyerror_keeps_traceback(self):
+        result = subprocess.run([sys.executable, '-c',
+            'from unittest.mock import patch; from cdpc import __main__ as c; '
+            'p=patch.object(c,"load",side_effect=KeyError("internal bug")); '
+            'p.start(); raise SystemExit(c.main(["check"]))'], capture_output=True, text=True, cwd=Path(cli.__file__).resolve().parents[1])
+        self.assertNotIn(result.returncode, (0, 2))
+        self.assertIn('Traceback', result.stderr)
+        self.assertIn("KeyError: 'internal bug'", result.stderr)
+
+    def test_write_lists_unsupported_and_explicit_override(self):
+        self.doc(parameters=[{'name': 'a', 'type': 'unsupported'}])
+        status, text = self.run_cli('write')
+        self.assertEqual(status, 1)
+        self.assertIn('unsupported method omitted: Sample.get', text)
+        data = json.loads((self.repo.protocol / 'cdp_contract.generated.json').read_text())
+        self.assertEqual(data['unsupported'], {'methods': ['Sample.get'], 'events': []})
+        self.assertEqual(self.run_cli('write', '--allow-unsupported')[0], 0)
+
     def run_cli(self,*args):
         out=io.StringIO()
         with patch.object(cli.model.Repo,'current',return_value=self.repo),contextlib.redirect_stdout(out):

@@ -11,7 +11,7 @@ import sys
 
 from cdpc.lint import ERROR_SCHEMA
 from cdpc.model import matches
-from cdpc.schema import check
+from cdpc.schema import check, params_value
 
 
 @dataclass(frozen=True)
@@ -39,10 +39,10 @@ class Checker:
         self.line = 0
         self.messages = 0
 
-    def report(self, kind, method, id, problems):
+    def report(self, kind, method, id, problems, line=None):
         if matches(method, self.targets):
             self.violations.append(Violation(
-                self.file, self.line, kind, f'{method} (id {id}): ' + '; '.join(problems),
+                self.file, self.line if line is None else line, kind, f'{method} (id {id}): ' + '; '.join(problems),
                 method, 'error', id, problems))
 
     def fields(self, kind, entry, id, schema, value, strict, path):
@@ -56,7 +56,7 @@ class Checker:
             self.report('kUnknownMethod' if kind == 'method' else 'kUnknownEvent',
                         method, id, [f'{kind} has no contract'])
         elif not entry.supported:
-            self.report('E102', method, id, ['contract uses an unsupported schema; run cdpc check ' + method])
+            self.report('kUnsupportedContract', method, id, ['contract uses an unsupported schema; run cdpc check ' + method])
             return None
         return entry
 
@@ -64,9 +64,17 @@ class Checker:
         self.line = line
         if (not isinstance(row, dict) or type(row.get('t')) not in (int, float)
                 or not isinstance(row.get('channel'), str)
-                or row.get('dir') not in ('in', 'out', 'dropped')
+                or row.get('dir') not in ('in', 'out', 'dropped', 'stats')
                 or not isinstance(row.get('truncated', False), bool)):
             raise ValueError(f'{self.file}:{line}: invalid trace envelope')
+        if row['dir'] == 'stats':
+            dropped = row.get('dropped_messages')
+            if type(dropped) is not int or dropped < 0:
+                raise ValueError(f'{self.file}:{line}: stats needs a nonnegative dropped_messages count')
+            if dropped:
+                self.violations.append(Violation(self.file, line, 'W601',
+                    f'recorder dropped {dropped} messages: trace is incomplete', severity='warning'))
+            return
         self.messages += 1
         channel, direction = row['channel'], row['dir']
         if direction == 'dropped':
@@ -83,8 +91,6 @@ class Checker:
         if not isinstance(message, dict):
             raise ValueError(f'{self.file}:{line}: message must be an object')
         truncated = row.get('truncated', False)
-        params = message.get('params')
-        params = {} if params is None else params
         if direction == 'in':
             if not signed_id(message.get('id')) or not isinstance(message.get('method'), str):
                 return  # Like the C++ observer, ignore malformed request envelopes.
@@ -93,25 +99,25 @@ class Checker:
             previous = self.pending.pop(key, None)
             if previous:
                 self.report('kUnanswered', previous['method'], id,
-                            ['request id reused before a response'])
+                            ['request id reused before a response'], previous['line'])
             if len(self.pending) >= 4096:
                 oldest, request = self.pending.popitem(last=False)
                 if not self.overflow_reported:
                     self.report('kUnanswered', request['method'], oldest[1],
-                                ['pending request limit exceeded; oldest request evicted'])
+                                ['pending request limit exceeded; oldest request evicted'], request['line'])
                     self.overflow_reported = True
             self.completed.pop(key, None)
             entry = self.entry('method', method, id)
-            self.pending[key] = {'method': method, 'entry': entry, 'dropped': False}
+            self.pending[key] = {'method': method, 'entry': entry, 'dropped': False, 'line': line}
             if entry and not truncated:
-                self.fields('kInvalidParams', method, id, entry.params, params, False, 'params')
+                self.fields('kInvalidParams', method, id, entry.params, params_value(entry.params, message), False, 'params')
         elif 'id' not in message:
             method = message.get('method')
             if not isinstance(method, str):
                 return
             entry = self.entry('event', method, 0)
             if entry and not truncated:
-                self.fields('kInvalidEvent', method, 0, entry.params, params, True, 'params')
+                self.fields('kInvalidEvent', method, 0, entry.params, params_value(entry.params, message), True, 'params')
         elif signed_id(message['id']):
             id = message['id']
             key = channel, id
@@ -137,7 +143,7 @@ class Checker:
     def flush(self):
         for (_, id), request in self.pending.items():
             if not request['dropped']:
-                self.report('kUnanswered', request['method'], id, ['request has no response'])
+                self.report('kUnanswered', request['method'], id, ['request has no response'], request['line'])
         self.pending.clear()
         self.completed.clear()
 

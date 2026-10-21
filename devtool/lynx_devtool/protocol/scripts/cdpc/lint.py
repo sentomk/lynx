@@ -4,7 +4,7 @@
 
 """Contract declarations and examples. Diagnostics retain YAML locations."""
 from cdpc.model import Diagnostic
-from cdpc.schema import check as check_value
+from cdpc.schema import check as check_value, params_value
 
 ERROR_SCHEMA = {'type': 'object', 'properties': {
     'code': {'schema': {'type': 'integer'}},
@@ -30,11 +30,11 @@ def check(repo, contract):
                 if not isinstance(request, dict) or request.get('method') != entry.name or type(request.get('id')) is not int:
                     report('E201', 'request needs the entry method and an integer id', '.request')
                 else:
-                    params = request.get('params')
+                    params = params_value(entry.params, request)
                     response = example.get('response')
                     expected_error = response.get('error', {}) if isinstance(response, dict) else {}
                     invalid_params_example = isinstance(expected_error, dict) and expected_error.get('code') in (-32602, -32600)
-                    for problem in ([] if invalid_params_example else check_value(entry.params, {} if params is None else params, strict=False, types=contract.types, path='params')):
+                    for problem in ([] if invalid_params_example else check_value(entry.params, params, strict=False, types=contract.types, path='params')):
                         report('E202', str(problem), '.request.params')
             for direction in ('response','event'):
                 if direction not in example:
@@ -46,8 +46,7 @@ def check(repo, contract):
                     event = contract.get('event', value['method'])
                     if event is None or not event.supported:
                         report('E201', f'event has no supported contract: {value["method"]}', '.' + direction); continue
-                    schema, data, field = event.params, value.get('params'), 'params'
-                    data = {} if data is None else data
+                    schema, data, field = event.params, params_value(event.params, value), 'params'
                 else:
                     if direction == 'event' or type(value.get('id')) is not int or ('result' in value) == ('error' in value):
                         report('E201', 'response needs id and exactly one of result or error', '.' + direction); continue

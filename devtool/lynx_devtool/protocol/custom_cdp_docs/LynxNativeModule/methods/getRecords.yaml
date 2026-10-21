@@ -3,6 +3,12 @@ parameters: []
 returns:
   - name: records
     type: array
+    items:
+      type: object
+      properties:
+        - name: sequence
+          type: integer
+      values: {type: any}
     description: Captured records in sequence order, including invocation, callback, and global event records.
   - name: latestSequence
     type: number

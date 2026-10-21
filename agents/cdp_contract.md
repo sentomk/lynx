@@ -9,26 +9,26 @@ The detailed workflow is in
 - `devtool/lynx_devtool/protocol/custom_cdp_docs/<Domain>/methods/<name>.yaml`
   describes a method; `events/<name>.yaml` describes an event.
 - `cdp_upstream/protocol.json` supplies standard CDP definitions. Local fields
-  override upstream fields. `cdp_support.yaml` contains only justified deviations.
+  override upstream fields. `cdp_support.yaml` contains justified deviations and registered protocol violations.
 - `scripts/cdpc/model.py` loads these into a single effective contract.
   `schema.py` owns field validation; `inventory.py` scans registrations.
 - `tools/cdpc write` writes `cdp_manifest.generated.yaml` (version 2) and
-  `cdp_contract.generated.json` (version 1). Do not edit these outputs by hand.
+  `cdp_contract.generated.json` (version 2). Do not edit these outputs by hand.
 - Business code owns dispatch, implementations, responses, and event emission.
   Declaring an event does not make the application emit it.
 
 The schema supports string (optionally enum), integer, number, boolean, object,
-array, any, and references to upstream types. Params and returns are objects.
-An object with `properties` checks its fields; a bare object checks only its type.
-Use `optional: true` for an optional field. Flat names such as
-`changes[].operation` require the array parent to be declared first.
+array, any, null, and references to upstream types. YAML unions use `string|null`;
+the generated JSON uses an ordered type list. Object fields use `properties`,
+and dynamic `<key>` path segments use `values`. Arrays must declare `items` or
+nested item fields. A bare object checks only its type.
 
-Union types, `null` types, non-object root values, and dynamic field names such
-as `<key>` are unsupported. Preserve existing declarations and report them;
-do not weaken them to `any` to make checks pass. `write` emits only supported
-whole entries, reports omissions, and exits 1 if declarations or examples fail.
-`check` remains nonzero until those source issues are resolved. Unsupported
-entries are not covered by the embedded C++ checker.
+Params and returns normally have object roots. Known non-object roots require a
+`non-object-root` violation with a reason in `cdp_support.yaml`; `check` warns
+until the protocol is corrected. Keep those warnings visible in CI. Unsupported
+entries are listed in the generated `unsupported.methods/events` arrays and
+produce `kUnsupportedContract` in both checkers. `write` lists omissions and
+exits 1; `--allow-unsupported` is an explicit temporary escape hatch.
 
 ## Commands
 
@@ -37,7 +37,7 @@ Run the wrapper directly; it sets up Python and the module path. Windows uses
 
 ```bash
 tools/cdpc check [TARGET...] [--strict] [--format text|json]
-tools/cdpc write [--dry-run] [--format text|json]
+tools/cdpc write [--dry-run] [--allow-unsupported] [--format text|json]
 tools/cdpc show [TARGET] [--format text|json]
 tools/cdpc new Domain.name [--event] [--from-upstream]
 tools/cdpc verify TRACE... [TARGET...] [--format text|json]
@@ -89,9 +89,10 @@ harness.Dispatch(agent, sender, request);
 
 Use the wrapped sender everywhere, including the sender returned to event
 producers. Drain asynchronous TASM/UI/DevTool work before destroying the harness.
-Use one harness per test; it installs the process-wide observer and clears it at
+Use one harness per test; it installs the process-wide observer and restores the previous observer at
 teardown. Unexpected violations and expected violations that never occur fail
-the test. For intentional malformed input, declare the exact expected kind/name:
+the test. Violations are also printed immediately to stderr, including expected
+violations, so a later handler crash does not hide them. For intentional malformed input, declare the exact expected kind/name:
 
 ```cpp
 harness.Expect(ContractViolation::Kind::kInvalidParams, "Lynx.setLogLevel");
@@ -119,5 +120,7 @@ The opt-in recorder serializes messages and writes them on a dedicated worker.
 The path is opened for a new recording, and queued records drain on normal exit.
 It never replaces an already installed observer. Messages above 1 MiB keep only
 method/id metadata and `truncated: true`; offline checks preserve correlation and
-skip their field validation. `verify` reads current YAML directly; no `write` is
+skip their field validation. The queue holds at most 10,000 rows; excess rows
+are dropped and counted in a final stats record. `verify` warns that such a trace
+is incomplete. `verify` reads current YAML directly; no `write` is
 needed. Recordings contain traffic payloads, so choose a suitable local path.

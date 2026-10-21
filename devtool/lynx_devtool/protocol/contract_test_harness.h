@@ -30,6 +30,7 @@ class ContractTestHarness {
   struct State;
   std::shared_ptr<State> state_;
   std::shared_ptr<ContractChecker> checker_;
+  std::shared_ptr<CDPTrafficObserver> previous_observer_;
   std::map<const void*, std::weak_ptr<MessageSender>> wrappers_;
 };
 }  // namespace devtool

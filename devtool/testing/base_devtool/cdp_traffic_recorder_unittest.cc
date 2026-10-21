@@ -152,6 +152,30 @@ TEST_F(CDPTrafficRecorderTest, EnvironmentIsOptInAndDoesNotReplaceObserver) {
 TEST_F(CDPTrafficRecorderTest, CannotOpenMissingDirectory) {
   EXPECT_EQ(CDPTrafficRecorder::Open(path_ + "/trace.jsonl"), nullptr);
 }
+TEST_F(CDPTrafficRecorderTest, FullQueueCountsDroppedMessagesAtEnd) {
+  // A zero-capacity queue deterministically exercises the full-queue path
+  // without relying on scheduling or a slow filesystem.
+  auto recorder = CDPTrafficRecorder::Open(path_, 1024, 0);
+  ASSERT_NE(recorder, nullptr);
+  recorder->OnIncomingMessage(this, Request());
+  recorder->OnOutgoingMessage(this, Response());
+  recorder->OnResponseDropped(this, 2);
+  recorder.reset();
+  const auto rows = Read();
+  ASSERT_EQ(rows.size(), 1u);
+  EXPECT_EQ(rows.back()["dir"], "stats");
+  EXPECT_EQ(rows.back()["dropped_messages"].asUInt64(), 3u);
+}
+TEST_F(CDPTrafficRecorderTest, SerializedPayloadPreservesEscaping) {
+  auto recorder = CDPTrafficRecorder::Open(path_);
+  auto message = Request();
+  message["params"]["text"] = "quoted \"value\"\nsecond line\\";
+  recorder->OnIncomingMessage(this, message);
+  recorder.reset();
+  const auto rows = Read();
+  ASSERT_EQ(rows.size(), 1u);
+  EXPECT_EQ(rows[0]["message"], message);
+}
 }  // namespace
 }  // namespace devtool
 }  // namespace lynx

@@ -4,6 +4,7 @@
 #include "devtool/lynx_devtool/protocol/contract_test_harness.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <mutex>
 #include <utility>
 #include <vector>
@@ -13,6 +14,15 @@
 namespace lynx {
 namespace devtool {
 namespace {
+std::string FormatViolation(const ContractViolation& violation) {
+  Json::Value problems(Json::arrayValue);
+  for (const auto& problem : violation.problems) problems.append(problem);
+  std::string text = Json::FastWriter().write(problems);
+  if (!text.empty() && text.back() == '\n') text.pop_back();
+  return std::string("[contract] ") +
+         ContractViolationKindName(violation.kind) + " " + violation.method +
+         " id=" + std::to_string(violation.id) + " " + text;
+}
 class CheckedSender : public MessageSender {
  public:
   CheckedSender(std::shared_ptr<MessageSender> sender,
@@ -49,29 +59,30 @@ struct ContractTestHarness::State {
 ContractTestHarness::ContractTestHarness() : state_(std::make_shared<State>()) {
   checker_ = ContractChecker::Create([state = state_](const auto& violation) {
     std::lock_guard<std::mutex> lock(state->mutex);
-    state->violations.push_back(violation);
+    auto expected = std::find(state->expected.begin(), state->expected.end(),
+                              std::make_pair(violation.kind, violation.method));
+    const bool is_expected = expected != state->expected.end();
+    std::fprintf(stderr, "%s%s\n", FormatViolation(violation).c_str(),
+                 is_expected ? " (expected)" : "");
+    std::fflush(stderr);
+    if (is_expected)
+      state->expected.erase(expected);
+    else
+      state->violations.push_back(violation);
   });
   if (!checker_) {
     ADD_FAILURE() << "Cannot load embedded CDP contract";
     return;
   }
-  SetCDPTrafficObserver(checker_);
+  previous_observer_ = ExchangeCDPTrafficObserver(checker_);
 }
 ContractTestHarness::~ContractTestHarness() {
   if (!checker_) return;
   checker_->Flush();
-  SetCDPTrafficObserver(nullptr);
+  SetCDPTrafficObserver(std::move(previous_observer_));
   std::lock_guard<std::mutex> lock(state_->mutex);
   for (const auto& v : state_->violations) {
-    auto expected = std::find(state_->expected.begin(), state_->expected.end(),
-                              std::make_pair(v.kind, v.method));
-    if (expected != state_->expected.end()) {
-      state_->expected.erase(expected);
-      continue;
-    }
-    ADD_FAILURE() << ContractViolationKindName(v.kind) << " " << v.method
-                  << " id=" << v.id << " "
-                  << ::testing::PrintToString(v.problems);
+    ADD_FAILURE() << FormatViolation(v);
   }
   for (const auto& expected : state_->expected) {
     ADD_FAILURE() << "Expected violation did not occur: "

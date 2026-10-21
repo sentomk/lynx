@@ -190,6 +190,10 @@ jobs:
           python-version: '3.13'
       - name: Install Common Dependencies
         uses: ./lynx/.github/actions/common-deps
+      - name: Check CDP contracts
+        run: tools/cdpc check --strict
+      - name: Test CDP contract tooling
+        run: tools/env.sh python3 -m unittest discover -s devtool/lynx_devtool/protocol/scripts/cdpc/tests -t devtool/lynx_devtool/protocol/scripts -p '*_test.py'
       - name: Run Unittests
         run: |
           set -e

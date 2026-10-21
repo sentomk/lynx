@@ -14,7 +14,7 @@ import re
 from typing import Literal
 
 import yaml
-from cdpc.schema import KINDS, Schema
+from cdpc.schema import KINDS, Schema, kinds
 
 
 @dataclass(frozen=True)
@@ -109,6 +109,8 @@ def field_origins(schema, prefix, origin):
         result.update(field_origins(prop['schema'], path, origin))
     if schema and 'items' in schema:
         result.update(field_origins(schema['items'], prefix + '[]', origin))
+    if schema and 'values' in schema:
+        result.update(field_origins(schema['values'], prefix + '.<key>', origin))
     return result
 
 
@@ -162,26 +164,32 @@ class Loader:
                 return {'type': 'any'}
             return {'ref': ref if '.' in ref else domain + '.' + ref}
         kind = spec.get('type')
-        if not isinstance(kind, str) or kind not in KINDS:
+        accepted = kind.split('|') if isinstance(kind, str) else []
+        if not accepted or any(k not in KINDS for k in accepted) or len(set(accepted)) != len(accepted):
             self.error('E102', path + '.type', f'unsupported type {kind!r}; expected one of {", ".join(sorted(KINDS))}')
             # Invalid entries are never exported or validated as a wider type.
             return {'type': 'unsupported'}
-        result = {'type': kind}
+        result = {'type': accepted if len(accepted) > 1 else kind}
         if 'enum' in spec:
             values = spec['enum']
-            if kind != 'string' or not isinstance(values, list) or not values or any(not isinstance(x, str) for x in values) or len(set(values)) != len(values):
+            if 'string' not in accepted or not isinstance(values, list) or not values or any(not isinstance(x, str) for x in values) or len(set(values)) != len(values):
                 self.error('E102', path + '.enum', 'enum must contain distinct strings on a string field')
             else:
                 result['enum'] = values
-        if kind == 'array':
+        if 'array' in accepted:
             # Flat paths may supply the item fields after their array parent.
             if 'items' in spec:
                 result['items'] = self.schema(spec['items'], domain, path + '.items')
-        if kind == 'object' and 'properties' in spec:
-            result = self.fields(spec['properties'], domain, path + '.properties')
+        if 'object' in accepted and 'properties' in spec:
+            result['properties'] = self.fields(spec['properties'], domain, path + '.properties')['properties']
+        if 'values' in spec:
+            if 'object' not in accepted:
+                self.error('E102', path + '.values', 'values requires an object type')
+            else:
+                result['values'] = self.schema(spec['values'], domain, path + '.values')
         return result
 
-    def fields(self, fields, domain, path):
+    def fields(self, fields, domain, path, allow_non_object_root=False):
         result = {'type': 'object', 'properties': {}}
         if not isinstance(fields, list):
             self.error('E101', path, f'{path} must be a list')
@@ -205,24 +213,40 @@ class Loader:
             value = self.schema(spec, domain, location)
             locations[id(value)] = location
             if spec.get('root'):
-                if len(fields) != 1 or value.get('type') != 'object':
-                    self.error('E102', location, 'params and returns must be object schemas; non-object root values are unsupported')
+                if len(fields) != 1:
+                    self.error('E102', location, 'root must be the only field')
+                elif value.get('type') != 'object' and not allow_non_object_root:
+                    self.error('E102', location, 'non-object root requires a registered non-object-root violation')
                 else:
                     result = value
+                    if value.get('type') != 'object':
+                        result['violation'] = 'non-object-root'
                 continue
             parts = name.split('.')
             cursor = result
             for j, part in enumerate(parts):
-                m = re.fullmatch(r'([A-Za-z_$][\w$]*)(\[\])?', part)
+                m = re.fullmatch(r'([A-Za-z_$][\w$]*|<key>)(\[\])?', part)
                 if not m:
                     self.error('E102', location + '.name', f'invalid field path {name}')
                     break
                 key, array = m.groups()
+                if key == '<key>':
+                    if j == len(parts) - 1:
+                        cursor['values'] = {'type': 'array', 'items': value} if array else value
+                    else:
+                        cursor = cursor.setdefault('values', {'type': 'array'} if array else {'type': 'object', 'properties': {}})
+                        if array:
+                            if 'array' not in kinds(cursor):
+                                self.error('E102', location, '<key> is not an array'); break
+                            cursor = cursor.setdefault('items', {'type': 'object', 'properties': {}})
+                        if 'object' not in kinds(cursor):
+                            self.error('E102', location, '<key> is not an inline object'); break
+                    continue
                 props = cursor.setdefault('properties', {})
                 if j == len(parts) - 1:
                     if array:
                         parent = props.get(key, {}).get('schema', {})
-                        if parent.get('type') != 'array':
+                        if 'array' not in kinds(parent):
                             self.error('E102', location, f'{key} must be declared as an array first')
                         else:
                             parent['items'] = value
@@ -236,23 +260,25 @@ class Loader:
                         break
                     cursor = props[key]['schema']
                     if array:
-                        if cursor.get('type') != 'array':
+                        if 'array' not in kinds(cursor):
                             self.error('E102', location, f'{key} is not an array')
                             break
                         cursor = cursor.setdefault('items', {'type': 'object', 'properties': {}})
-                    if cursor.get('type') != 'object':
-                        if cursor.get('type') in KINDS:
+                    if 'object' not in kinds(cursor):
+                        if any(k in KINDS for k in kinds(cursor)):
                             self.error('E102', location, f'{key} is not an inline object')
                         break
         def arrays(schema, location=path):
             location = locations.get(id(schema), location)
-            if schema.get('type') == 'array':
+            if 'array' in kinds(schema):
                 if 'items' not in schema:
                     self.error('E102', location, 'array requires items or a nested item field')
                     schema['items'] = {'type': 'any'}
                 arrays(schema['items'], location + '.items')
             for prop in schema.get('properties', {}).values():
                 arrays(prop['schema'], location)
+            if 'values' in schema:
+                arrays(schema['values'], location)
         arrays(result)
         return result
 
@@ -283,7 +309,7 @@ def load(repo: Repo) -> tuple[Contract, list[Diagnostic]]:
                 upstream[entry.key] = replace(entry, supported=len(loader.problems) == start,
                                               fields_from=provenance)
     pristine = deepcopy(upstream)
-    deviations = {}
+    deviations, violations = {}, {}
     if repo.support.exists():
         loader.source, loader.entry = repo.support, ''
         try:
@@ -293,13 +319,26 @@ def load(repo: Repo) -> tuple[Contract, list[Diagnostic]]:
         except (yaml.YAMLError, ValueError) as error:
             loader.error('E501', '', str(error)); support = {}
         for domain, config in support.items():
-            if not isinstance(config, dict) or set(config) != {'deviations'} or not isinstance(config.get('deviations'), list):
-                loader.error('E501', str(domain), 'support domains may contain only a deviations list')
+            if not isinstance(config, dict) or set(config) - {'deviations', 'violations'} or any(not isinstance(value, list) for value in config.values()):
+                loader.error('E501', str(domain), 'support domains may contain deviations and violations lists')
                 continue
-            deviations[domain] = config['deviations']
-            for i, change in enumerate(config['deviations']):
+            deviations[domain] = config.get('deviations', [])
+            for i, change in enumerate(config.get('deviations', [])):
                 path = f'{domain}.deviations[{i}]'
                 apply_deviation(loader, upstream, domain, change, path)
+            for i, violation in enumerate(config.get('violations', [])):
+                path = f'{domain}.violations[{i}]'
+                loader.entry = ''
+                if (not isinstance(violation, dict) or set(violation) != {'target', 'kind', 'reason'}
+                        or violation.get('kind') != 'non-object-root'
+                        or not isinstance(violation.get('target'), str)
+                        or not re.fullmatch(r'\w+\.(parameters|returns)', violation['target'])
+                        or not isinstance(violation.get('reason'), str) or not violation['reason'].strip()):
+                    loader.error('E501', path, 'invalid non-object-root violation'); continue
+                key = domain + '.' + violation['target']
+                if key in violations:
+                    loader.error('E501', path, f'duplicate violation {key}'); continue
+                violations[key] = (violation, loader.lines.get(path, 1))
     for path in sorted(repo.docs.glob('*/*/*.yaml')):
         section = path.parent.name
         if section not in ('methods', 'events'):
@@ -328,15 +367,18 @@ def load(repo: Repo) -> tuple[Contract, list[Diagnostic]]:
             if key in doc and not isinstance(doc[key], list):
                 loader.error('E101', key, f'{key} must be a list')
         original = upstream.get(entry_key(kind, full))
-        params = loader.fields(doc.get('parameters', []), domain, 'parameters')
-        returns = loader.fields(doc.get('returns', []), domain, 'returns') if kind == 'method' else None
+        params = loader.fields(doc.get('parameters', []), domain, 'parameters', full + '.parameters' in violations)
+        returns = loader.fields(doc.get('returns', []), domain, 'returns', full + '.returns' in violations) if kind == 'method' else None
         provenance = dict(original.fields_from) if original else {}
         for section, schema in [('params', params), ('returns', returns)]:
             if schema is None:
                 continue
             base = getattr(original, section) if original else None
             local = deepcopy(schema)
-            if base:
+            local_section = 'parameters' if section == 'params' else 'returns'
+            fields = doc.get(local_section, [])
+            has_root = isinstance(fields, list) and any(isinstance(f, dict) and f.get('root') for f in fields)
+            if base and not has_root:
                 schema.clear(); schema.update(deepcopy(base))
                 schema.setdefault('properties', {}).update(local.get('properties', {}))
                 for field_name in base.get('properties', {}):
@@ -377,20 +419,35 @@ def load(repo: Repo) -> tuple[Contract, list[Diagnostic]]:
                     visited.add(ref)
                     resolve(types[ref], aliases | {ref})
                 return
-            if schema.get('type') not in KINDS:
+            if any(k not in KINDS for k in kinds(schema)):
                 loader.error('E103', '', 'referenced schema uses an unsupported type')
-            if schema.get('type') == 'array':
+            if 'array' in kinds(schema):
                 if 'items' not in schema:
                     loader.error('E103', '', 'referenced array schema requires items')
                 else:
                     resolve(schema['items'])
             for prop in schema.get('properties', {}).values():
                 resolve(prop['schema'])
+            if 'values' in schema:
+                resolve(schema['values'])
         resolve(entry.params)
         if entry.returns is not None:
             resolve(entry.returns)
         if len(loader.problems) != start:
             table[key] = replace(entry, supported=False)
+    for target, (violation, line) in violations.items():
+        name, section = target.rsplit('.', 1)
+        schemas = [entry.params if section == 'parameters' else entry.returns
+                   for entry in entries.values() if entry.name == name]
+        roots = [schema for schema in schemas if schema and schema.get('violation') == 'non-object-root']
+        code, severity, message = ('W501', 'warning', f'{target}: non-object-root: {violation["reason"]}')
+        if not schemas:
+            code, severity, message = 'E501', 'error', f'violation target does not exist: {target}'
+        elif not roots:
+            code, severity, message = 'E502', 'error', f'non-object-root violation no longer applies: {target}'
+        elif len(roots) > 1:
+            code, severity, message = 'E501', 'error', f'ambiguous violation target: {target}'
+        loader.problems.append(Diagnostic(repo.relative(repo.support), line, code, message, name, severity))
     result = Contract(entries, types, upstream, raw, deviations, loader.problems)
     return result, loader.problems
 

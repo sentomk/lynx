@@ -51,6 +51,11 @@ bool ParseMessage(const std::string& message, Json::Value* out) {
 }  // namespace
 
 void SetCDPTrafficObserver(std::shared_ptr<CDPTrafficObserver> observer) {
+  ExchangeCDPTrafficObserver(std::move(observer));
+}
+
+std::shared_ptr<CDPTrafficObserver> ExchangeCDPTrafficObserver(
+    std::shared_ptr<CDPTrafficObserver> observer) {
   ObserverSlot& slot = GetSlot();
   {
     std::lock_guard<std::mutex> lock(slot.mutex);
@@ -58,6 +63,7 @@ void SetCDPTrafficObserver(std::shared_ptr<CDPTrafficObserver> observer) {
     slot.installed.store(slot.observer != nullptr, std::memory_order_release);
   }
   // An observer may drain its worker on destruction. Do not hold the slot lock.
+  return observer;
 }
 
 bool IsCDPTrafficObserverInstalled() {

@@ -17,3 +17,27 @@ Tracing:
       kind: added
       as: {type: boolean, optional: true}
       reason: Marks the tracingComplete event sent for a startup tracing file.
+
+Lynx:
+  violations:
+    - target: getVersion.returns
+      kind: non-object-root
+      reason: The platform returns the version string directly as the result value.
+
+Template:
+  violations:
+    - target: templateConfigInfo.returns
+      kind: non-object-root
+      reason: Removed template config support returns an empty string for compatibility.
+
+Replay:
+  violations:
+    - target: end.parameters
+      kind: non-object-root
+      reason: The legacy internal replay handler accepts a raw dump file path.
+
+Component:
+  violations:
+    - target: uselessUpdate.parameters
+      kind: non-object-root
+      reason: The legacy event echoes opaque request params, including null when absent.

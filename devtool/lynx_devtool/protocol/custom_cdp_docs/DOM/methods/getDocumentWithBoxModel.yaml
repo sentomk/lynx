@@ -37,6 +37,7 @@ returns:
     description: Parent node id when the element has a parent.
   - name: 'root.attributes'
     type: array
+    items: {type: string}
     optional: true
     description: Flat name/value array containing attributes, data attributes, event attributes, class, style, and selected Lynx inspector metadata.
   - name: 'root.childNodeCount'
@@ -45,6 +46,7 @@ returns:
     description: Number of child nodes serialized for this node.
   - name: 'root.children'
     type: array
+    items: {type: object}
     optional: true
     description: Child nodes serialized with the same shape as root.
   - name: 'root.box_model'
@@ -61,18 +63,22 @@ returns:
     description: Element height after conversion from layout units to pixels.
   - name: 'root.box_model.content'
     type: array
+    items: {type: number}
     optional: true
     description: Eight numeric coordinates for the content quad.
   - name: 'root.box_model.padding'
     type: array
+    items: {type: number}
     optional: true
     description: Eight numeric coordinates for the padding quad.
   - name: 'root.box_model.border'
     type: array
+    items: {type: number}
     optional: true
     description: Eight numeric coordinates for the border quad.
   - name: 'root.box_model.margin'
     type: array
+    items: {type: number}
     optional: true
     description: Eight numeric coordinates for the margin quad.
 events: []

@@ -29,6 +29,15 @@
         },
         "type": "object"
       }
+    },
+    "Types.root": {
+      "params": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "violation": "non-object-root"
+      }
     }
   },
   "examples": [],
@@ -48,6 +57,76 @@
           "runtimeLevel": {
             "schema": {
               "type": "string"
+            }
+          }
+        },
+        "type": "object"
+      }
+    },
+    "Types.map": {
+      "params": {
+        "properties": {},
+        "type": "object"
+      },
+      "returns": {
+        "properties": {
+          "fixed": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        },
+        "type": "object",
+        "values": {
+          "ref": "MapEntry"
+        }
+      }
+    },
+    "Types.root": {
+      "params": {
+        "properties": {},
+        "type": "object"
+      },
+      "returns": {
+        "type": "string",
+        "violation": "non-object-root"
+      }
+    },
+    "Types.union": {
+      "params": {
+        "properties": {},
+        "type": "object"
+      },
+      "returns": {
+        "properties": {
+          "text": {
+            "schema": {
+              "enum": [
+                "ok"
+              ],
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "value": {
+            "schema": {
+              "items": {
+                "type": "integer"
+              },
+              "properties": {
+                "id": {
+                  "schema": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "type": [
+                "object",
+                "array",
+                "null"
+              ]
             }
           }
         },
@@ -86,6 +165,25 @@
       }
     }
   },
-  "types": {},
-  "version": 1
+  "types": {
+    "MapEntry": {
+      "properties": {
+        "sizeBytes": {
+          "schema": {
+            "type": "integer"
+          }
+        }
+      },
+      "type": "object"
+    }
+  },
+  "unsupported": {
+    "events": [
+      "Unsupported.event"
+    ],
+    "methods": [
+      "Unsupported.method"
+    ]
+  },
+  "version": 2
 }

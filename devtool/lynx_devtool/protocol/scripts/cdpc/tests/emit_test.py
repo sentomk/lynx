@@ -23,6 +23,6 @@ class EmitTest(RepoTest):
         self.assertFalse(emit.check(self.repo,outputs))
 
     def test_unsupported_entry_is_omitted_not_widened(self):
-        self.doc(returns=[{'name':'bad','type':'integer|string'}])
+        self.doc(returns=[{'name':'bad','type':'integer|unsupported'}])
         contract,_=model.load(self.repo)
         self.assertNotIn('Sample.get',emit.contract_data(contract)['methods'])

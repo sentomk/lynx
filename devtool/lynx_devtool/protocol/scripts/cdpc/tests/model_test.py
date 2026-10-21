@@ -7,6 +7,38 @@ from cdpc import model, inventory
 from cdpc.tests.support import RepoTest
 
 class ModelTest(RepoTest):
+    def test_union_map_paths_and_reference_closure(self):
+        self.doc(returns=[{'name': 'data', 'type': 'object|null'},
+                          {'name': 'data.fixed', 'type': 'string'},
+                          {'name': 'data.<key>.node', '$ref': 'Node'}])
+        contract, problems = model.load(self.repo)
+        self.assertFalse(problems)
+        schema = contract.get('method', 'Sample.get').returns['properties']['data']['schema']
+        self.assertEqual(schema['type'], ['object', 'null'])
+        self.assertEqual(schema['values']['properties']['node']['schema'], {'ref': 'Sample.Node'})
+        self.assertEqual(schema['properties']['fixed']['schema'], {'type': 'string'})
+
+    def test_reject_duplicate_union_and_unregistered_root(self):
+        for spec in ({'name': 'x', 'type': 'string|string'},
+                     {'name': 'result', 'type': 'string', 'root': True}):
+            with self.subTest(spec=spec):
+                self.doc(returns=[spec])
+                contract, problems = model.load(self.repo)
+                self.assertTrue(any(p.code == 'E102' for p in problems))
+                self.assertFalse(contract.get('method', 'Sample.get').supported)
+
+    def test_registered_root_overrides_upstream_and_stale_violation_fails(self):
+        self.repo.support.write_text(yaml.safe_dump({'Sample': {'violations': [
+            {'target': 'get.returns', 'kind': 'non-object-root', 'reason': 'legacy value'}]}}))
+        self.doc(returns=[{'name': 'result', 'type': 'string', 'root': True}])
+        contract, problems = model.load(self.repo)
+        self.assertEqual([(p.code, p.severity) for p in problems], [('W501', 'warning')])
+        self.assertEqual(contract.get('method', 'Sample.get').returns,
+                         {'type': 'string', 'violation': 'non-object-root'})
+        self.doc(returns=[{'name': 'result', 'type': 'object', 'root': True}])
+        _, problems = model.load(self.repo)
+        self.assertEqual([p.code for p in problems], ['E502'])
+
     def test_local_overrides_upstream_and_retains_lines(self):
         path=self.doc(returns=[{'name':'node','type':'string'}])
         contract, problems=model.load(self.repo)
@@ -41,7 +73,7 @@ class ModelTest(RepoTest):
         self.assertTrue(props['extra']['optional'])
 
     def test_unsupported_types_do_not_become_exportable_any(self):
-        self.doc(returns=[{'name':'value','type':'string|integer'}])
+        self.doc(returns=[{'name':'value','type':'string|missing'}])
         contract, problems=model.load(self.repo)
         self.assertEqual(problems[0].code,'E102')
         self.assertFalse(contract.get('method','Sample.get').supported)

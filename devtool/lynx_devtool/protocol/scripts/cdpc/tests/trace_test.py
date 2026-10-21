@@ -13,6 +13,20 @@ DATA = Path(__file__).parent / 'testdata'
 
 
 class TraceTest(RepoTest):
+    def test_recorder_overflow_is_a_warning_even_with_target_filter(self):
+        problems, count = self.verify([{'t': 1, 'dir': 'stats', 'channel': '0x0',
+                                       'dropped_messages': 7}], targets=['Missing'])
+        self.assertEqual(count, 0)
+        self.assertEqual([(p.code, p.severity) for p in problems], [('W601', 'warning')])
+        self.assertIn('7 messages', problems[0].message)
+
+    def test_unanswered_uses_request_line(self):
+        problems, _ = self.verify([
+            self.row('in', {'id': 1, 'method': 'Sample.get'}),
+            self.row('out', {'method': 'Sample.changed', 'params': {'reason': 'one'}}),
+            self.row('out', {'method': 'Sample.changed', 'params': {'reason': 'one'}})])
+        self.assertEqual([(p.code, p.line) for p in problems], [('kUnanswered', 1)])
+
     def contract(self):
         self.doc('Sample.changed', 'event',
                  parameters=[{'name': 'reason', 'type': 'string', 'enum': ['one']}])
@@ -61,12 +75,12 @@ class TraceTest(RepoTest):
         for content in ('{', '{"t":NaN}', '{"t":1,"channel":"a","dir":"dropped"}'):
             with self.assertRaises(ValueError):
                 trace.verify(self.contract(), ['-'], stdin=io.StringIO(content))
-        self.doc('Sample.get', parameters=[{'name': 'value', 'type': 'string|integer'}])
+        self.doc('Sample.get', parameters=[{'name': 'value', 'type': 'string|missing'}])
         contract = self.contract()
         problems, _ = self.verify([
             self.row('in', {'id': 1, 'method': 'Sample.get'}),
             self.row('out', {'id': 1, 'result': {}})], contract)
-        self.assertEqual([p.code for p in problems], ['E102'])
+        self.assertEqual([p.code for p in problems], ['kUnsupportedContract'])
 
     def test_cpp_recording_is_consumed_without_conversion(self):
         path = DATA / 'recorder.trace.jsonl'
