@@ -245,6 +245,60 @@ TEST_F(UnavailableBackendTest, GlobalLegacyHandlersReplyWithoutTaskRunner) {
   global.ui_task_runner_ = old_ui;
   global.default_task_runner_ = old_default;
 }
+TEST_F(UnavailableBackendTest, UIHandlersReplyWhenPlatformFacadeIsMissing) {
+  ui_thread->GetTaskRunner()->PostSyncTask([&] {
+    ui->SetDevToolPlatformFacade(nullptr);
+    ui->uitree_enabled_ = true;
+    using Handler = void (InspectorUIExecutor::*)(
+        const std::shared_ptr<MessageSender>&, const Json::Value&);
+    const Handler handlers[] = {
+        &InspectorUIExecutor::GetNodeForLocation,
+        &InspectorUIExecutor::StartScreencast,
+        &InspectorUIExecutor::StopScreencast,
+        &InspectorUIExecutor::ScreencastFrameAck,
+        &InspectorUIExecutor::GetScreenshot,
+        &InspectorUIExecutor::GetLynxUITree,
+        &InspectorUIExecutor::GetUIInfoForNode,
+        &InspectorUIExecutor::SetUIStyle,
+        &InspectorUIExecutor::LynxGetRectToWindow,
+        &InspectorUIExecutor::LynxGetViewLocationOnScreen,
+        &InspectorUIExecutor::LynxTransferData,
+        &InspectorUIExecutor::LynxSendEventToVM,
+    };
+    auto request = Request("test");
+    auto& params = request["params"];
+    params["x"] = 0;
+    params["y"] = 0;
+    params["sessionId"] = 1;
+    params["UINodeId"] = 1;
+    params["styleName"] = "visible";
+    params["styleContent"] = "true";
+    params["dataType"] = "template";
+    params["data"] = "test";
+    params["eof"] = true;
+    params["vmType"] = "main";
+    params["event"] = "test";
+    for (auto handler : handlers) {
+      (ui.get()->*handler)(sink, request);
+      ASSERT_EQ(sink->messages.size(), 1u);
+      EXPECT_EQ(sink->messages[0]["error"]["code"], -32603);
+      CheckError();
+    }
+  });
+}
+TEST_F(UnavailableBackendTest, TasmQueriesReplyWithoutDocumentOrMediator) {
+  tasm_thread->GetTaskRunner()->PostSyncTask([&] {
+    auto request = Request("test");
+    tasm->GetDocumentWithBoxModel(sink, request);
+    CheckError();
+    tasm->GetMediaQueries(sink, request);
+    CheckError();
+    tasm->devtool_mediator_wp_.reset();
+    request["params"]["nodeId"] = 1;
+    tasm->DOM_GetBoxModel(sink, request);
+    CheckError();
+  });
+}
 }  // namespace testing
 }  // namespace devtool
 }  // namespace lynx

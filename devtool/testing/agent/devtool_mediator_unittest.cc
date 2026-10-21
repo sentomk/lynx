@@ -786,7 +786,7 @@ TEST_F(DevToolMediatorTest, LayerTreeCommandsRunOnTASMThreadCase) {
   EXPECT_EQ(response["id"], 53);
   EXPECT_EQ(response["result"]["compositingReasons"],
             Json::Value(Json::arrayValue));
-  EXPECT_EQ(response["result"]["compositingReasonsIds"],
+  EXPECT_EQ(response["result"]["compositingReasonIds"],
             Json::Value(Json::arrayValue));
   EXPECT_FALSE(devtool_mediator_->element_executor_->layer_tree_enabled_);
 }
