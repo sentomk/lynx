@@ -1210,6 +1210,23 @@
   },
   "examples": [
     {
+      "entry": "CSS.getComputedStyleForNode",
+      "request": {
+        "id": 1,
+        "method": "CSS.getComputedStyleForNode",
+        "params": {
+          "nodeId": 1
+        }
+      },
+      "response": {
+        "id": 1,
+        "result": {
+          "computedStyle": []
+        }
+      },
+      "title": "Read getComputedStyleForNode"
+    },
+    {
       "entry": "CSS.updateRuleUsageTracking",
       "request": {
         "id": 1,
@@ -1332,6 +1349,31 @@
         "result": {}
       },
       "title": "Enable DOM tree capture and reload"
+    },
+    {
+      "entry": "DOM.getDocument",
+      "request": {
+        "id": 1,
+        "method": "DOM.getDocument",
+        "params": {
+          "depth": 1
+        }
+      },
+      "response": {
+        "id": 1,
+        "result": {
+          "compress": false,
+          "root": {
+            "backendNodeId": 1,
+            "localName": "view",
+            "nodeId": 1,
+            "nodeName": "view",
+            "nodeType": 1,
+            "nodeValue": ""
+          }
+        }
+      },
+      "title": "Read getDocument"
     },
     {
       "entry": "DOM.getDocumentWithBoxModel",
@@ -2156,6 +2198,28 @@
         }
       },
       "title": "Check screencast support"
+    },
+    {
+      "entry": "Page.getResourceTree",
+      "request": {
+        "id": 1,
+        "method": "Page.getResourceTree",
+        "params": {}
+      },
+      "response": {
+        "id": 1,
+        "result": {
+          "frameTree": {
+            "frame": {
+              "mimeType": "text/html",
+              "securityOrigin": "",
+              "url": "lynx://"
+            },
+            "resources": []
+          }
+        }
+      },
+      "title": "Read getResourceTree"
     },
     {
       "entry": "Page.startScreencast",

@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 import yaml
 
-from cdpc import emit, inventory, lint, model, trace, scaffold, upstream
+from cdpc import emit, inventory, lint, model, trace, scaffold, upstream, capture
 
 
 def output(problems, summary, format='text', **data):
@@ -36,6 +36,11 @@ def parser():
     show.add_argument('target', nargs='?')
     verify = commands.add_parser('verify', help='check recorded JSONL traffic against YAML')
     verify.add_argument('inputs', nargs='+', metavar='TRACE_OR_TARGET')
+    cap = commands.add_parser('capture', help='replay explicitly safe examples through agent-lynx and verify the trace')
+    cap.add_argument('targets', nargs='*')
+    cap.add_argument('--client', required=True)
+    cap.add_argument('--session', required=True)
+    cap.add_argument('-o', '--output')
     new = commands.add_parser('new', help='create one editable YAML contract')
     new.add_argument('name')
     new.add_argument('--event', action='store_true')
@@ -46,7 +51,7 @@ def parser():
     update.add_argument('--revision', help='devtools-protocol revision (default: master)')
     diff = operations.add_parser('diff', help='compare registrations, events and deviations')
     diff.add_argument('domain', nargs='?')
-    for command in (check, write, show, verify, new, update, diff):
+    for command in (check, write, show, verify, new, update, diff, cap):
         command.add_argument('--format', choices=('text','json'), default='text')
     return cli
 
@@ -99,6 +104,11 @@ def main(argv=None):
             return output(problems, f'cdpc upstream update: updated {len(updated)} generated files',
                           args.format, update_log=log)
         contract, sources = load(repo, getattr(args, 'strict', False))
+        if args.command == 'capture':
+            path, count = capture.capture(contract, args.targets, args.client, args.session, args.output)
+            problems, messages = trace.verify(contract, [path])
+            return output(problems, f'cdpc capture: {count} examples, {messages} messages; {path}',
+                          args.format, path=str(path), examples=count, messages=messages)
         if args.command == 'new':
             path, problems = scaffold.create(repo, contract, args.name,
                                              event=args.event, from_upstream=args.from_upstream)

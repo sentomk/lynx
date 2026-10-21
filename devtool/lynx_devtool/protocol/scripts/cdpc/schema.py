@@ -24,6 +24,20 @@ def params_value(schema, message):
     return {} if value is None and schema.get('type') == 'object' else value
 
 
+def example_request(value, bindings=None):
+    """Resolve supported capture placeholders; validation uses a typed sample."""
+    bindings = {'$rootNodeId': 1} if bindings is None else bindings
+    if isinstance(value, dict):
+        return {key: example_request(item, bindings) for key, item in value.items()}
+    if isinstance(value, list):
+        return [example_request(item, bindings) for item in value]
+    if value == '$rootNodeId':
+        if value not in bindings:
+            raise ValueError('could not resolve $rootNodeId')
+        return bindings[value]
+    return value
+
+
 @dataclass(frozen=True)
 class Problem:
     path: str

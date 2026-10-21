@@ -358,9 +358,11 @@ def load(repo: Repo) -> tuple[Contract, list[Diagnostic]]:
                 full, kind, empty, empty if kind == 'method' else None, [], 'local',
                 source=path, supported=False)
             continue
-        allowed = {'summary','parameters','returns','events','examples','notes','since','experimental','deprecated'}
+        allowed = {'summary','parameters','returns','events','examples','notes','since','experimental','deprecated','capture'}
         for key in set(doc) - allowed:
             loader.error('E101', key, f'unknown document key {key}')
+        if doc.get('capture', 'unsafe') not in ('safe', 'unsafe'):
+            loader.error('E101', 'capture', 'capture must be safe or unsafe')
         if not isinstance(doc.get('summary'), str) or not doc['summary'].strip() or 'TODO' in doc['summary']:
             loader.error('E101', 'summary', 'summary must describe the entry; replace placeholder text')
         for key in ('notes','examples','events'):

@@ -1,4 +1,5 @@
 summary: Reads the process-wide runtime log threshold, including INFO sublevels.
+capture: safe
 parameters: []
 returns:
   - name: runtimeLevel

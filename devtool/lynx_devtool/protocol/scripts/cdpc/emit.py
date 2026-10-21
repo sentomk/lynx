@@ -9,7 +9,7 @@ import os
 import tempfile
 import yaml
 from cdpc.model import Diagnostic
-from cdpc.schema import references
+from cdpc.schema import references, example_request
 
 
 def contract_data(contract):
@@ -32,6 +32,8 @@ def contract_data(contract):
         data['methods' if entry.kind == 'method' else 'events'][entry.name] = out
         for example in entry.examples:
             if isinstance(example, dict):
+                if entry.document.get('capture') == 'safe' and 'request' in example:
+                    example = {**example, 'request': example_request(example['request'])}
                 event = example.get('event', example.get('response'))
                 if isinstance(event, dict) and 'method' in event and 'id' not in event:
                     dependency = contract.get('event', event['method'])

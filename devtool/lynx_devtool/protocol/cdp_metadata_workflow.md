@@ -213,3 +213,15 @@ of this package's tests. The recorder C++ test writes an ignored
 the direct C++→Python format check; otherwise that one integration test is skipped.
 The fixture intentionally contains one dropped response, and `verify` must exit 1
 with exactly one `kDropped`. This is separate from a manual Explorer/frontend run.
+
+## Safe example capture
+
+`tools/cdpc capture DOM CSS Page --client ID --session ID -o trace.jsonl`
+uses the optional `agent-lynx` CLI and automatically verifies the resulting trace.
+Only methods explicitly marked `capture: safe` in their YAML are replayed; the
+default is `unsafe`. Review side effects before marking a method safe.
+`$rootNodeId` in an example request is resolved via the safe `DOM.getDocument`
+method. Static example checks use a typed sample node id. Output files must not
+already exist. Requests are saved before sending, so failures retain a partial
+trace. Structured CLI errors retain their CDP code and message; older CLI
+versions that emit only text errors are reported as environment failures.

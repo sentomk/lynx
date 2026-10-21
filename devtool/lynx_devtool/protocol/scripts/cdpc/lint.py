@@ -4,7 +4,7 @@
 
 """Contract declarations and examples. Diagnostics retain YAML locations."""
 from cdpc.model import Diagnostic
-from cdpc.schema import check as check_value, params_value
+from cdpc.schema import check as check_value, params_value, example_request
 
 ERROR_SCHEMA = {'type': 'object', 'properties': {
     'code': {'schema': {'type': 'integer'}},
@@ -26,6 +26,8 @@ def check(repo, contract):
             if not isinstance(example, dict) or not isinstance(example.get('title'), str) or not any(k in example for k in ('request','response','event')):
                 report('E201', 'example needs a title and a request, response or event'); continue
             request = example.get('request')
+            if entry.document.get('capture') == 'safe':
+                request = example_request(request)
             if request is not None:
                 if not isinstance(request, dict) or request.get('method') != entry.name or type(request.get('id')) is not int:
                     report('E201', 'request needs the entry method and an integer id', '.request')

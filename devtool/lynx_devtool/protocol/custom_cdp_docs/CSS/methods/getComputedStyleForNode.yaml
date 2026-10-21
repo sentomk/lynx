@@ -1,0 +1,18 @@
+summary: Reads CSS.getComputedStyleForNode using the current Lynx contract.
+capture: safe
+parameters: []
+returns: []
+examples:
+- title: Read getComputedStyleForNode
+  request:
+    id: 1
+    method: CSS.getComputedStyleForNode
+    params:
+      nodeId: $rootNodeId
+  response:
+    id: 1
+    result:
+      computedStyle: []
+notes:
+- Safe capture uses the explicit client and session; fields follow the upstream schema
+  and registered Lynx deviations.

@@ -1,0 +1,22 @@
+summary: Reads Page.getResourceTree using the current Lynx contract.
+capture: safe
+parameters: []
+returns: []
+examples:
+- title: Read getResourceTree
+  request:
+    id: 1
+    method: Page.getResourceTree
+    params: {}
+  response:
+    id: 1
+    result:
+      frameTree:
+        frame:
+          url: lynx://
+          securityOrigin: ''
+          mimeType: text/html
+        resources: []
+notes:
+- Safe capture uses the explicit client and session; fields follow the upstream schema
+  and registered Lynx deviations.

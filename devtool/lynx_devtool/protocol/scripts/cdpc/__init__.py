@@ -6,6 +6,6 @@
 LAYERS = {
     'base': ['schema', 'model'],
     'data': ['lint', 'inventory', 'emit'],
-    'commands': ['trace', 'scaffold', 'upstream'],
+    'commands': ['trace', 'scaffold', 'upstream', 'capture'],
     'entry': ['__main__'],
 }

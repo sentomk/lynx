@@ -1,0 +1,25 @@
+summary: Reads DOM.getDocument using the current Lynx contract.
+capture: safe
+parameters: []
+returns: []
+examples:
+- title: Read getDocument
+  request:
+    id: 1
+    method: DOM.getDocument
+    params:
+      depth: 1
+  response:
+    id: 1
+    result:
+      root:
+        nodeId: 1
+        backendNodeId: 1
+        nodeType: 1
+        nodeName: view
+        localName: view
+        nodeValue: ''
+      compress: false
+notes:
+- Safe capture uses the explicit client and session; fields follow the upstream schema
+  and registered Lynx deviations.
