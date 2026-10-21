@@ -2478,9 +2478,15 @@ void InspectorTasmExecutor::CSS_Disable(
 void InspectorTasmExecutor::GetMatchedStylesForNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "CSS.getMatchedStylesForNode")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt64())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -2503,9 +2509,15 @@ void InspectorTasmExecutor::GetMatchedStylesForNode(
 void InspectorTasmExecutor::GetLayersForNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "CSS.getLayersForNode")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   response["id"] = message["id"].asInt64();
@@ -2535,9 +2547,15 @@ void InspectorTasmExecutor::GetLayersForNode(
 void InspectorTasmExecutor::GetComputedStyleForNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "CSS.getComputedStyleForNode")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt64())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -2593,9 +2611,15 @@ void InspectorTasmExecutor::GetComputedStyleForNode(
 void InspectorTasmExecutor::GetInlineStylesForNode(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "CSS.getInlineStylesForNode")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt64())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -2613,18 +2637,7 @@ void InspectorTasmExecutor::GetInlineStylesForNode(
 void InspectorTasmExecutor::SetStyleTexts(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"edits", CDPParamType::kArray},
-                       {"edits[]", CDPParamType::kObject},
-                       {"edits[].range", CDPParamType::kObject},
-                       {"edits[].range.endColumn", CDPParamType::kInteger},
-                       {"edits[].range.endLine", CDPParamType::kInteger},
-                       {"edits[].range.startColumn", CDPParamType::kInteger},
-                       {"edits[].range.startLine", CDPParamType::kInteger},
-                       {"edits[].styleSheetId", CDPParamType::kString},
-                       {"edits[].text", CDPParamType::kString},
-                       {"nodeForPropertySyntaxValidation",
-                        CDPParamType::kInteger, true}})) {
+  if (!CheckCDPParams(sender, message, "CSS.setStyleTexts")) {
     return;
   }
 
@@ -2670,8 +2683,7 @@ void InspectorTasmExecutor::SetStyleTexts(
 void InspectorTasmExecutor::GetStyleSheetText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"styleSheetId", CDPParamType::kString}})) {
+  if (!CheckCDPParams(sender, message, "CSS.getStyleSheetText")) {
     return;
   }
 
@@ -2698,9 +2710,15 @@ void InspectorTasmExecutor::GetStyleSheetText(
 void InspectorTasmExecutor::GetBackgroundColors(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message, {{"nodeId", CDPParamType::kInteger}})) {
+  if (!CheckCDPParams(sender, message, "CSS.getBackgroundColors")) {
     return;
   }
+  if ((!message["params"]["nodeId"].isNull() && !message["params"]["nodeId"].isInt64())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value content(Json::ValueType::objectValue);
@@ -2718,9 +2736,7 @@ void InspectorTasmExecutor::GetBackgroundColors(
 void InspectorTasmExecutor::SetStyleSheetText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"styleSheetId", CDPParamType::kString},
-                       {"text", CDPParamType::kString}})) {
+  if (!CheckCDPParams(sender, message, "CSS.setStyleSheetText")) {
     return;
   }
 
@@ -2738,9 +2754,7 @@ void InspectorTasmExecutor::SetStyleSheetText(
 void InspectorTasmExecutor::CreateStyleSheet(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"force", CDPParamType::kBoolean, true},
-                       {"frameId", CDPParamType::kString}})) {
+  if (!CheckCDPParams(sender, message, "CSS.createStyleSheet")) {
     return;
   }
 
@@ -2771,18 +2785,18 @@ void InspectorTasmExecutor::CreateStyleSheet(
 void InspectorTasmExecutor::AddRule(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(
-          sender, message,
-          {{"location", CDPParamType::kObject},
-           {"location.endColumn", CDPParamType::kInteger},
-           {"location.endLine", CDPParamType::kInteger},
-           {"location.startColumn", CDPParamType::kInteger},
-           {"location.startLine", CDPParamType::kInteger},
-           {"nodeForPropertySyntaxValidation", CDPParamType::kInteger, true},
-           {"ruleText", CDPParamType::kString},
-           {"styleSheetId", CDPParamType::kString}})) {
+  if (!CheckCDPParams(sender, message, "CSS.addRule")) {
     return;
   }
+  if ((!message["params"]["location"]["startLine"].isNull() && !message["params"]["location"]["startLine"].isInt()) ||
+      (!message["params"]["location"]["startColumn"].isNull() && !message["params"]["location"]["startColumn"].isInt()) ||
+      (!message["params"]["location"]["endLine"].isNull() && !message["params"]["location"]["endLine"].isInt()) ||
+      (!message["params"]["location"]["endColumn"].isNull() && !message["params"]["location"]["endColumn"].isInt())) {
+    sender->SendErrorResponse(message["id"].asInt64(), -32602,
+                              "Invalid params: numeric value exceeds native range");
+    return;
+  }
+
 
   Json::Value response(Json::ValueType::objectValue);
   Json::Value params = message["params"];
@@ -2850,9 +2864,7 @@ void InspectorTasmExecutor::StartRuleUsageTracking(
 void InspectorTasmExecutor::UpdateRuleUsageTracking(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"selector", CDPParamType::kArray, true},
-                       {"selector[]", CDPParamType::kString}})) {
+  if (!CheckCDPParams(sender, message, "CSS.updateRuleUsageTracking")) {
     return;
   }
 
@@ -2977,14 +2989,7 @@ void InspectorTasmExecutor::GetMediaQueries(
 void InspectorTasmExecutor::SetMediaText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"range", CDPParamType::kObject},
-                       {"range.endColumn", CDPParamType::kInteger},
-                       {"range.endLine", CDPParamType::kInteger},
-                       {"range.startColumn", CDPParamType::kInteger},
-                       {"range.startLine", CDPParamType::kInteger},
-                       {"styleSheetId", CDPParamType::kString},
-                       {"text", CDPParamType::kString}})) {
+  if (!CheckCDPParams(sender, message, "CSS.setMediaText")) {
     return;
   }
 
@@ -3028,14 +3033,7 @@ void InspectorTasmExecutor::SetMediaText(
 void InspectorTasmExecutor::SetSupportsText(
     const std::shared_ptr<lynx::devtool::MessageSender>& sender,
     const Json::Value& message) {
-  if (!CheckCDPParams(sender, message,
-                      {{"range", CDPParamType::kObject},
-                       {"range.endColumn", CDPParamType::kInteger},
-                       {"range.endLine", CDPParamType::kInteger},
-                       {"range.startColumn", CDPParamType::kInteger},
-                       {"range.startLine", CDPParamType::kInteger},
-                       {"styleSheetId", CDPParamType::kString},
-                       {"text", CDPParamType::kString}})) {
+  if (!CheckCDPParams(sender, message, "CSS.setSupportsText")) {
     return;
   }
 
