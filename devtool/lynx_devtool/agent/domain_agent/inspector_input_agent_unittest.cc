@@ -22,6 +22,7 @@
 #include "devtool/base_devtool/native/public/message_sender.h"
 #include "devtool/lynx_devtool/agent/inspector_ui_executor.h"
 #include "devtool/lynx_devtool/agent/lynx_devtool_mediator.h"
+#include "devtool/lynx_devtool/protocol/contract_test_harness.h"
 #include "devtool/testing/mock/devtool_platform_facade_mock.h"
 #include "third_party/googletest/googletest/include/gtest/gtest.h"
 #include "third_party/jsoncpp/include/json/value.h"
@@ -108,6 +109,8 @@ class InspectorInputAgentTest : public ::testing::Test {
     SetDevToolPlatformFacade(platform_facade_);
     agent_ = std::make_shared<InspectorInputAgent>(devtool_mediator_);
     message_sender_ = std::make_shared<InputAgentTestMessageSender>();
+    contract_ = std::make_unique<ContractTestHarness>();
+    checked_sender_ = contract_->Wrap(message_sender_);
   }
 
   void TearDown() override {
@@ -116,6 +119,7 @@ class InspectorInputAgentTest : public ::testing::Test {
       devtool_mediator_->ui_executor_.reset();
       ui_executor_.reset();
     });
+    contract_.reset();
     agent_.reset();
     platform_facade_.reset();
     message_sender_.reset();
@@ -140,9 +144,7 @@ class InspectorInputAgentTest : public ::testing::Test {
   }
 
   void Dispatch(const Json::Value& message) {
-    auto responder = std::make_shared<CDPResponder>(message_sender_,
-                                                    message["id"].asInt64());
-    agent_->CallMethod(responder, message);
+    contract_->Dispatch(*agent_, checked_sender_, message);
   }
 
   Json::Value LastResponse() {
@@ -152,6 +154,8 @@ class InspectorInputAgentTest : public ::testing::Test {
     return messages.back().second;
   }
 
+  std::unique_ptr<ContractTestHarness> contract_;
+  std::shared_ptr<MessageSender> checked_sender_;
   std::shared_ptr<InspectorInputAgent> agent_;
   std::shared_ptr<LynxDevToolMediator> devtool_mediator_;
   std::shared_ptr<InspectorUIExecutor> ui_executor_;
@@ -242,6 +246,7 @@ TEST_F(InspectorInputAgentTest, UnknownMethodReturnsMethodNotFound) {
   message["id"] = 36;
   message["method"] = "Input.unknown";
 
+  contract_->Expect(ContractViolation::Kind::kUnknownMethod, "Input.unknown");
   Dispatch(message);
 
   ASSERT_TRUE(message_sender_->WaitForMessageCount(1));
@@ -274,6 +279,8 @@ TEST_F(InspectorInputAgentTest,
   message["method"] = "Input.insertText";
   message["params"]["text"] = 42;
 
+  contract_->Expect(ContractViolation::Kind::kInvalidParams,
+                    "Input.insertText");
   Dispatch(message);
 
   ASSERT_TRUE(message_sender_->WaitForMessageCount(1));
@@ -450,6 +457,8 @@ TEST_F(InspectorInputAgentTest, SynthesizeTapGestureRejectsInvalidSource) {
   Json::Value message = BuildTapMessage(25);
   message["params"]["gestureSourceType"] = "pen";
 
+  contract_->Expect(ContractViolation::Kind::kInvalidParams,
+                    "Input.synthesizeTapGesture");
   Dispatch(message);
 
   ASSERT_TRUE(message_sender_->WaitForMessageCount(1));
@@ -466,6 +475,8 @@ TEST_F(InspectorInputAgentTest, SynthesizeTapGestureRejectsMissingParams) {
   message["id"] = 42;
   message["method"] = "Input.synthesizeTapGesture";
 
+  contract_->Expect(ContractViolation::Kind::kInvalidParams,
+                    "Input.synthesizeTapGesture");
   Dispatch(message);
 
   ASSERT_TRUE(message_sender_->WaitForMessageCount(1));
@@ -491,6 +502,8 @@ TEST_F(InspectorInputAgentTest,
   Json::Value message =
       BuildTapMessage(27, std::numeric_limits<double>::infinity(), 20);
 
+  contract_->Expect(ContractViolation::Kind::kInvalidParams,
+                    "Input.synthesizeTapGesture");
   Dispatch(message);
 
   ASSERT_TRUE(message_sender_->WaitForMessageCount(1));
@@ -518,6 +531,7 @@ TEST_F(InspectorInputAgentTest, SynthesizeTapGestureRejectsRealValuedDuration) {
   Json::Value message = BuildTapMessage(29);
   message["params"]["duration"] = 1.0;
 
+  // Integral JSON reals satisfy the contract; the native reader is stricter.
   Dispatch(message);
 
   ASSERT_TRUE(message_sender_->WaitForMessageCount(1));
