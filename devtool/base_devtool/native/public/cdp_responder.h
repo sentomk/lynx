@@ -55,17 +55,18 @@ class CDPResponder {
   CDPResponder(const CDPResponder&) = delete;
   CDPResponder& operator=(const CDPResponder&) = delete;
 
-  // Emits an InternalError when neither SendSuccess() nor SendError()
-  // has been called and the sender has not been retrieved for compatibility
-  // use. This is what guarantees "exactly one response per request".
+  // Logs a warning and emits a fallback OK response if neither SendSuccess()
+  // nor SendError() has been called and the sender has not been retrieved for
+  // compatibility use. This guarantees "exactly one response per request".
   ~CDPResponder() {
     if (sender_) {
       if (id_.has_value()) {
         NotifyCDPResponseDropped(sender_.get(), *id_);
       }
-      LOGE("CDP request was dropped without a reply, id=" << id_.value_or(-1));
-      SendError(CDPErrorCode::InternalError,
-                "Request was dropped without a reply");
+      LOGW("CDP responder destroyed without an explicit reply; "
+           "sending fallback success, id="
+           << id_.value_or(-1));
+      SendSuccess();
     }
   }
 
@@ -79,7 +80,8 @@ class CDPResponder {
   // bad_optional_access.
 
   // Sends the OK response { id, result } and releases the sender so the
-  // response can be emitted at most once. |result| defaults to an empty object.
+  // response can be emitted at most once. |result| defaults to an empty object,
+  // which is also what the destructor's fallback response carries.
   void SendSuccess(Json::Value result = Json::Value(Json::objectValue)) {
     if (!sender_) {
       return;

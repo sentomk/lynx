@@ -158,9 +158,10 @@ than its YAML type.
 
 The violation kinds are `kInvalidParams`, `kInvalidResult`, `kInvalidError`,
 `kInvalidEvent`, `kUnsupportedContract`, `kUnknownMethod`, `kUnknownEvent`, `kDuplicateResponse`, `kDropped`,
-and `kUnanswered`. A dropped responder is reported before its InternalError
-fallback; that fallback is not checked again for result fields. A second response
-is still a duplicate. Requests with the same id on different channels are distinct.
+and `kUnanswered`. A dropped responder is reported and logged as a warning before
+its empty success fallback; that fallback is not checked again for result fields.
+A second response is still a duplicate. Requests with the same id on different
+channels are distinct.
 
 The checker parses embedded JSON once, resolves type references, and bounds its
 pending table. No checker or contract JSON is linked into SDK targets. Rebuild

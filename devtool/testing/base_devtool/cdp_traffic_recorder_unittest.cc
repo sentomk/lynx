@@ -84,8 +84,7 @@ TEST_F(CDPTrafficRecorderTest, RecordsAndDrainsForPythonVerification) {
   recorder->OnResponseDropped(this, 2);
   Json::Value fallback(Json::objectValue);
   fallback["id"] = 2;
-  fallback["error"]["code"] = -32603;
-  fallback["error"]["message"] = "Request was dropped without a reply";
+  fallback["result"] = Json::Value(Json::objectValue);
   recorder->OnOutgoingMessage(this, fallback);
   recorder.reset();
   const auto rows = Read();
