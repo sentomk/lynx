@@ -1,6 +1,8 @@
 # CDPC 与 Lynx CDP 架构设计
 
-更新：2026-10-21。状态：设计草案；本文的 C++ 接口、目录和独立工具接口均为目标设计，尚未实现。本轮只更新文档并初始化独立仓库，暂停中的 CDPC 代码改造继续保持暂停。
+更新：2026-10-21。状态：整体架构仍是设计草案；实施步骤 1、2 已在独立仓库 `/Users/bytedance/code/cdpc` 实现，包括独立构建、Params、Reply、契约描述、方法表辅助与测试后端示例。独立 CLI、生成链拆分、Lynx sender adapter 和业务迁移仍待后续实施，原 Lynx 代码改造保持暂停。
+
+当前可运行 API 与构建说明见 [CDPC README](../cdpc/README.md) 和 [runtime API](../cdpc/docs/runtime.md)。文中的整体路由、Domain 和平台接入示例仍为目标形态，不表示已经接入 Lynx。
 
 > A contract-first CDP toolkit for Lynx.
 
@@ -196,7 +198,8 @@ class Reply {
 Reply MakeReply(
     int64_t id, const MethodContract& contract,
     std::function<void(Json::Value)> send_success,
-    std::function<void(CDPErrorCode, const std::string&)> send_error);
+    std::function<void(CDPErrorCode, const std::string&)> send_error,
+    std::function<void(std::string_view)> diagnostic = {});
 
 template <typename Domain>
 struct Method {
@@ -219,6 +222,8 @@ void Dispatch(Domain& domain, const Method<Domain> (&methods)[N],
 Params 和 Reply 没有可构造的有效默认实例，只有入口工厂或已有实例的复制/移动。契约引用来自静态生成数据。Method 的函数指针约束 handler 形状；注册时还要验证该契约受支持并且名称无重复。
 
 `cdpc::MakeReply` 是 CDPC 的完成回调接线入口，绑定 id 和契约。Lynx 另提供接收 sender 的 MakeReply 工厂，在 native 请求边界调用它；普通业务只接收 Dispatch 创建的句柄。两个完成回调必须有效，且只负责发送，结果校验、一次完成和重复诊断仍在 CDPC。此前的 MakeResponder 名称统一为 Reply/MakeReply。
+
+首版增加一个可选的同步 diagnostic 回调，供 Lynx 接入日志；默认写 stderr。发送和诊断回调均不得抛异常。诊断在锁外执行，同一状态重入或重叠的诊断会合并，因此日志条数不是精确的重复尝试计数；诊断回调不能反向持有 Reply 或 responder。契约节点及其字段、enum、引用数据必须不可变且具有静态生命周期，MethodContract 对象本身可以是临时值，方法名会被复制。
 
 ### 实际例子：Input.insertText
 
@@ -454,7 +459,7 @@ cdpc::Reply MakeReply(const std::shared_ptr<MessageSender>& sender,
 
 显式发送按以下顺序执行：
 
-1. 锁住 State；若已经完成，只记录重复完成诊断并返回。
+1. 锁住 State；若已经完成，先释放锁，再记录重复完成诊断并返回。
 2. 取得本次完成权，标记已完成，把成功和错误回调整组移到当前调用的局部变量，清空 State 的发送能力。
 3. 释放锁；成功结果按绑定契约校验，合法则调用成功回调，非法则记录诊断并调用错误回调发送 InternalError。
 4. 释放局部的两个回调及其捕获对象。成功发送后底层 sender 已清空，不再析构兜底。
@@ -573,13 +578,14 @@ Lynx adapter 需要解析约定的静态表语法，把契约符号、协议名�
 
 ## 代码组织与改动面积
 
-以下为建议的目标目录，尚未创建：
+以下为目标目录。CDPC 的 include、src、tests 和 examples 已创建；工具核心与 Lynx 新组织仍待实施：
 
 ```text
 CDPC 仓库
   include/cdpc/    Params、Reply、契约描述、Method 与重复检查
   src/            参数读取、共享完成状态、结果校验
-  tests/          runtime 单测与示例；显式提供首版公共类型依赖
+  tests/          runtime 单测与共享契约案例；显式提供首版公共类型依赖
+  examples/       Input.insertText 测试后端示例
   工具核心         契约模型、校验、诊断、上游比较、规则生成、离线验证
   CLI 与工具测试   不依赖 Lynx checkout
 
@@ -642,7 +648,9 @@ Domain 内需要的线程操作可以与 Domain 放在一起，不强制每个�
 
 ## 实施顺序与验证
 
-本轮只修正文档和实施顺序，不创建运行时代码、不恢复 Lynx 业务迁移。后续实现分成能够分别验证的交付，先证明接口与依赖成立，再扩大接入范围。
+步骤 1、2 已在独立 CDPC 仓库完成；其余步骤保持分开验证。当前有 10 组 CTest，包含复用旧工具的 14 个方法契约案例。普通构建与禁用 exceptions/RTTI 的 UBSan 构建均通过；另验证了消费者提供既有 JsonCpp target 的接入方式。ASan 构建成功，但在本机进入 main 前卡在 sanitizer 初始化，不能作为内存检查通过的证据。
+
+共享案例的来源哈希及范围见 [fixture 说明](../cdpc/tests/testdata/README.md)。事件案例尚未纳入本轮；旧 fixture 中显式声明 non-object-root 的方法也没有直接迁入。首版 native MethodContract 明确要求 object 根，遇到这种描述返回 InternalError，未来接入需要显式决定兼容方式。
 
 1. **先建立 CDPC runtime 的独立构建与测试入口。** 公共头、源文件和测试分别组织；显式接入同一版本的 JsonCpp、Lynx expected 和 CDPErrorCode。检查传递依赖及符号，不通过复制基础库来解决构建问题。这里的“独立构建”指不构建 Lynx 应用和 Domain，不表示首版完全不需要 Lynx 公共依赖。
 2. **实现 Params、Reply 和最小契约描述。** 先用固定契约输入及测试完成回调证明读取、生命周期和一次完成语义；完成缺失/null/default、数值边界、嵌套、并发、重入和回调释放的测试。使用已有共享案例，避免另立一套字段规则。未支持的契约显式失败。
@@ -653,7 +661,7 @@ Domain 内需要的线程操作可以与 Domain 放在一起，不强制每个�
 
 ### 第一轮实现的交付范围
 
-恢复编码后的第一份交付应是“可构建的小库＋可运行的契约示例”，包含：
+已交付“可构建的小库＋可运行的契约示例”。下表最后一项的真实 Lynx sender adapter 验证随步骤 4 完成，目前仅用测试替身验证回调释放与析构兜底的生命周期：
 
 | 产物 | 验收结果 |
 |---|---|
@@ -661,7 +669,7 @@ Domain 内需要的线程操作可以与 Domain 放在一起，不强制每个�
 | Params 的受检查读取 | 错误参数返回错误码和路径；缺失/null/default 与数值边界按本文约定处理 |
 | Reply 的共享状态 | 两个副本竞争只执行一个完成回调；无重入死锁；完成后两回调都释放 |
 | Input.insertText 契约示例 | 合法 text 到达测试业务回调，非法参数不会调用业务；异步持有期间不提前释放回复 |
-| Lynx sender adapter 的验证 | 现有 CDPResponder 保持不变；重复回复和未完成释放符合约定 |
+| Lynx sender adapter 的验证（步骤 4） | 现有 CDPResponder 保持不变；待在真实发送链验证重复回复和未完成释放 |
 
 示例使用测试业务回调，不能据此声称真实设备已插入文本。第一轮不迁移全部 Agent，也不重写 Mediator；Lynx 真正的方法接入对应上面的第 4 项。工具核心的完整独立与生产结果/事件出口接入仍按后续交付验证。
 
@@ -680,7 +688,7 @@ Domain 内需要的线程操作可以与 Domain 放在一起，不强制每个�
 | 独立工具与 runtime | 工具核心测试不依赖 Lynx checkout；runtime 单测显式接入公共类型依赖；固定输入可复现；Lynx 注册扫描无漏报 |
 | 构建与真实链路 | 相应 C++/平台构建、harness、录制 verify、设备/前端结果分别记录，不互相替代 |
 
-完整 checker 和 harness 继续保持 testonly；运行时出口用专门的轻量规则实现。本次文档工作不代表这些测试已执行，也不恢复此前暂缓的设备验证。
+完整 checker 和 harness 继续保持 testonly；运行时出口用专门的轻量规则实现。当前验证限于上述独立 runtime 和测试后端，不代表已执行整张验证矩阵，也不恢复此前暂缓的设备验证。
 
 ## 已确定的取舍与后续验证点
 
