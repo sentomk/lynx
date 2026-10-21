@@ -829,7 +829,7 @@ TEST_F(InspectorTasmExecutorTest, CompositingReasonsReturnsElementPayload) {
   EXPECT_FALSE(response.isMember("method"));
   Json::Value expected(Json::objectValue);
   expected["compositingReasons"].append("view");
-  expected["compositingReasonsIds"].append(node_id);
+  expected["compositingReasonIds"].append(std::to_string(node_id));
   EXPECT_EQ(response["result"], expected);
   EXPECT_TRUE(
       devtool::MockReceiver::GetInstance().received_message_.second.empty());

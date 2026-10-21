@@ -3292,6 +3292,11 @@ void InspectorTasmExecutor::SendLayerPaintedEvent() {
   response["method"] = "LayerTree.layerPainted";
   Json::Value layerId(Json::ValueType::stringValue);
   Json::Value clip(Json::ValueType::objectValue);
+  // A target without a root has an empty painted rectangle.
+  clip["x"] = 0;
+  clip["y"] = 0;
+  clip["width"] = 0;
+  clip["height"] = 0;
   auto devtool_mediator = devtool_mediator_wp_.lock();
   CHECK_NULL_AND_LOG_RETURN(devtool_mediator, "devtool_mediator is null");
 
@@ -3347,15 +3352,16 @@ void InspectorTasmExecutor::CompositingReasons(
 
   Json::Value result(Json::ValueType::objectValue);
   Json::Value compositingReasons(Json::ValueType::arrayValue);
-  Json::Value compositingReasonsIds(Json::ValueType::arrayValue);
+  Json::Value compositingReasonIds(Json::ValueType::arrayValue);
   lynx::tasm::Element* element = GetElementById(layer_id);
 
   if (element) {
     compositingReasons.append(ElementInspector::LocalName(element));
-    compositingReasonsIds.append(ElementInspector::NodeId(element));
+    compositingReasonIds.append(
+        std::to_string(ElementInspector::NodeId(element)));
   }
   result["compositingReasons"] = compositingReasons;
-  result["compositingReasonsIds"] = compositingReasonsIds;
+  result["compositingReasonIds"] = compositingReasonIds;
   responder->SendSuccess(std::move(result));
 }
 

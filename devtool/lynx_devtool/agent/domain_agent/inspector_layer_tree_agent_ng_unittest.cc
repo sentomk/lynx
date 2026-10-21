@@ -172,7 +172,7 @@ TEST_F(InspectorLayerTreeAgentTest, CompositingReasonsReturnsToRequestSender) {
 
   Json::Value expected(Json::objectValue);
   expected["compositingReasons"] = Json::Value(Json::arrayValue);
-  expected["compositingReasonsIds"] = Json::Value(Json::arrayValue);
+  expected["compositingReasonIds"] = Json::Value(Json::arrayValue);
   EXPECT_EQ(OnlyResponse()["result"], expected);
   auto messages = response_sender_->Messages();
   ASSERT_EQ(messages.size(), 1u);
