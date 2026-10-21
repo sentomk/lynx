@@ -41,3 +41,37 @@ Component:
     - target: uselessUpdate.parameters
       kind: non-object-root
       reason: The legacy event echoes opaque request params, including null when absent.
+
+DOM:
+  deviations:
+    - target: getDocument.returns.compress
+      kind: added
+      as: {type: boolean}
+      reason: Lynx reports whether result.root was zlib-compressed and base64-encoded by its DOM transport.
+
+CSS:
+  deviations:
+    - target: getComputedStyleForNode.returns.extraFields
+      kind: omitted
+      reason: This upstream snapshot requires Blink-specific extra fields; Lynx only implements computedStyle.
+
+Page:
+  deviations:
+    - target: getResourceTree.returns.frameTree.frame.id
+      kind: omitted
+      reason: Lynx exposes a synthetic resource frame without browser frame identity.
+    - target: getResourceTree.returns.frameTree.frame.loaderId
+      kind: omitted
+      reason: Lynx has no browser document loader associated with this resource frame.
+    - target: getResourceTree.returns.frameTree.frame.domainAndRegistry
+      kind: omitted
+      reason: The synthetic Lynx resource URL has no browser registered domain.
+    - target: getResourceTree.returns.frameTree.frame.secureContextType
+      kind: omitted
+      reason: Lynx does not expose Blink secure-context classification.
+    - target: getResourceTree.returns.frameTree.frame.crossOriginIsolatedContextType
+      kind: omitted
+      reason: Lynx does not expose browser cross-origin isolation state.
+    - target: getResourceTree.returns.frameTree.frame.gatedAPIFeatures
+      kind: omitted
+      reason: Lynx does not implement Blink gated web platform features.

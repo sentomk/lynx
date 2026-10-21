@@ -325,7 +325,7 @@ def load(repo: Repo) -> tuple[Contract, list[Diagnostic]]:
             deviations[domain] = config.get('deviations', [])
             for i, change in enumerate(config.get('deviations', [])):
                 path = f'{domain}.deviations[{i}]'
-                apply_deviation(loader, upstream, domain, change, path)
+                apply_deviation(loader, upstream, domain, change, path, types)
             for i, violation in enumerate(config.get('violations', [])):
                 path = f'{domain}.violations[{i}]'
                 loader.entry = ''
@@ -452,7 +452,7 @@ def load(repo: Repo) -> tuple[Contract, list[Diagnostic]]:
     return result, loader.problems
 
 
-def apply_deviation(loader, entries, domain, change, path):
+def apply_deviation(loader, entries, domain, change, path, types):
     if not isinstance(change, dict) or set(change) - {'target','kind','as','reason'}:
         loader.error('E501', path, 'invalid deviation mapping'); return
     target, kind = change.get('target', ''), change.get('kind')
@@ -467,8 +467,18 @@ def apply_deviation(loader, entries, domain, change, path):
         loader.error('E501', path, f'upstream entry is missing or ambiguous: {target}'); return
     entry = candidates[0]
     schema = entry.params if parts[1] == 'parameters' else entry.returns
-    for part in parts[2:-1]:
-        schema = (schema or {}).get('properties', {}).get(part, {}).get('schema')
+    # Materialize only this entry's path. Mutating a shared upstream type would
+    # silently change contracts for unrelated methods and events.
+    for part in [*parts[2:-1], None]:
+        visited = set()
+        while schema and 'ref' in schema:
+            ref = schema['ref']
+            if ref in visited or ref not in types:
+                loader.error('E501', path, f'unresolvable deviation parent: {target}'); return
+            visited.add(ref)
+            schema.clear(); schema.update(deepcopy(types[ref]))
+        if part is not None:
+            schema = (schema or {}).get('properties', {}).get(part, {}).get('schema')
     if schema is None or 'properties' not in schema:
         loader.error('E501', path, f'upstream parent does not exist: {target}'); return
     props, field_name = schema['properties'], parts[-1]

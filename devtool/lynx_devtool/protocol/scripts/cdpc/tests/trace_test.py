@@ -13,6 +13,27 @@ DATA = Path(__file__).parent / 'testdata'
 
 
 class TraceTest(RepoTest):
+    def test_repository_compatibility_deviations(self):
+        repo = model.Repo.current()
+        contract, _ = model.load(repo)
+        contract = inventory.complete(contract, inventory.scan(repo, contract))
+        responses = {
+            'DOM.getDocument': {'root': {'nodeId': 1, 'backendNodeId': 1, 'nodeType': 1,
+                'nodeName': 'view', 'localName': 'view', 'nodeValue': ''}, 'compress': False},
+            'CSS.getComputedStyleForNode': {'computedStyle': []},
+            'Page.getResourceTree': {'frameTree': {'frame': {'url': 'lynx://',
+                'securityOrigin': '', 'mimeType': 'text/html'}, 'resources': []}},
+            'Lynx.getVersion': '4.1',
+        }
+        rows = []
+        for id, (method, result) in enumerate(responses.items()):
+            rows += [self.row('in', {'id': id, 'method': method, 'params': {'nodeId': 1}}),
+                     self.row('out', {'id': id, 'result': result})]
+        self.assertEqual(self.verify(rows, contract), ([], 8))
+        rows[-1]['message']['result'] = 42
+        problems, _ = self.verify(rows, contract)
+        self.assertEqual(problems[0].problems, ['result: expected string'])
+
     def test_recorder_overflow_is_a_warning_even_with_target_filter(self):
         problems, count = self.verify([{'t': 1, 'dir': 'stats', 'channel': '0x0',
                                        'dropped_messages': 7}], targets=['Missing'])

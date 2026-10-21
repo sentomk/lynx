@@ -17,8 +17,15 @@ def update(repo, revision=None):
     return result.stdout.strip()
 
 
-def field_at(schema, parts):
+def field_at(schema, parts, types=None):
     for i, part in enumerate(parts):
+        seen = set()
+        while schema and 'ref' in schema:
+            ref = schema['ref']
+            if ref in seen:
+                return None
+            seen.add(ref)
+            schema = (types or {}).get(ref)
         prop = (schema or {}).get('properties', {}).get(part)
         if prop is None:
             return None
@@ -71,8 +78,8 @@ def diff(repo, contract, sources, domain=None):
             if len(candidates) != 1:
                 continue
             entry = contract.get(candidates[0].kind, entry_name) or candidates[0]
-            before = field_at(baseline[(entry.kind, entry_name)][parts[1]], parts[2:])
-            after = field_at(entry.params if parts[1] == 'parameters' else entry.returns, parts[2:])
+            before = field_at(baseline[(entry.kind, entry_name)][parts[1]], parts[2:], contract.types)
+            after = field_at(entry.params if parts[1] == 'parameters' else entry.returns, parts[2:], contract.types)
             report['deviations'].append({
                 'entry': entry_name, 'target': '.'.join(parts[1:]),
                 'kind': change.get('kind'), 'before': before, 'after': after,

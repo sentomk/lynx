@@ -3084,11 +3084,6 @@
               },
               "type": "array"
             }
-          },
-          "extraFields": {
-            "schema": {
-              "ref": "CSS.ComputedStyleExtraFields"
-            }
           }
         },
         "type": "object"
@@ -3783,6 +3778,11 @@
       },
       "returns": {
         "properties": {
+          "compress": {
+            "schema": {
+              "type": "boolean"
+            }
+          },
           "root": {
             "schema": {
               "ref": "DOM.Node"
@@ -6391,7 +6391,84 @@
         "properties": {
           "frameTree": {
             "schema": {
-              "ref": "Page.FrameResourceTree"
+              "properties": {
+                "childFrames": {
+                  "optional": true,
+                  "schema": {
+                    "items": {
+                      "ref": "Page.FrameResourceTree"
+                    },
+                    "type": "array"
+                  }
+                },
+                "frame": {
+                  "schema": {
+                    "properties": {
+                      "adFrameStatus": {
+                        "optional": true,
+                        "schema": {
+                          "ref": "Page.AdFrameStatus"
+                        }
+                      },
+                      "mimeType": {
+                        "schema": {
+                          "type": "string"
+                        }
+                      },
+                      "name": {
+                        "optional": true,
+                        "schema": {
+                          "type": "string"
+                        }
+                      },
+                      "parentId": {
+                        "optional": true,
+                        "schema": {
+                          "ref": "Page.FrameId"
+                        }
+                      },
+                      "securityOrigin": {
+                        "schema": {
+                          "type": "string"
+                        }
+                      },
+                      "securityOriginDetails": {
+                        "optional": true,
+                        "schema": {
+                          "ref": "Page.SecurityOriginDetails"
+                        }
+                      },
+                      "unreachableUrl": {
+                        "optional": true,
+                        "schema": {
+                          "type": "string"
+                        }
+                      },
+                      "url": {
+                        "schema": {
+                          "type": "string"
+                        }
+                      },
+                      "urlFragment": {
+                        "optional": true,
+                        "schema": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "type": "object"
+                  }
+                },
+                "resources": {
+                  "schema": {
+                    "items": {
+                      "ref": "Page.FrameResource"
+                    },
+                    "type": "array"
+                  }
+                }
+              },
+              "type": "object"
             }
           }
         },
@@ -9123,16 +9200,6 @@
         "text": {
           "schema": {
             "type": "string"
-          }
-        }
-      },
-      "type": "object"
-    },
-    "CSS.ComputedStyleExtraFields": {
-      "properties": {
-        "isAppearanceBase": {
-          "schema": {
-            "type": "boolean"
           }
         }
       },

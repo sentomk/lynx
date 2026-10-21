@@ -7,6 +7,15 @@ from cdpc import model, inventory
 from cdpc.tests.support import RepoTest
 
 class ModelTest(RepoTest):
+    def test_nested_deviation_does_not_mutate_shared_type(self):
+        self.repo.support.write_text(yaml.safe_dump({'Sample': {'deviations': [
+            {'target': 'get.returns.node.label', 'kind': 'omitted', 'reason': 'not exposed'}]}}))
+        contract, problems = model.load(self.repo)
+        self.assertFalse(problems)
+        root = contract.get('method', 'Sample.get').returns['properties']['node']['schema']
+        self.assertNotIn('label', root['properties'])
+        self.assertIn('label', contract.types['Sample.Node']['properties'])
+
     def test_union_map_paths_and_reference_closure(self):
         self.doc(returns=[{'name': 'data', 'type': 'object|null'},
                           {'name': 'data.fixed', 'type': 'string'},
