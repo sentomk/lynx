@@ -222,6 +222,72 @@ TEST(CDPParamUtilsTest, MissingFieldsAndNullParamsFailWithoutChangingOutput) {
   EXPECT_FLOAT_EQ(float_result, 42.0f);
 }
 
+TEST(CDPParamUtilsTest,
+     GeneratedRulesEnforceRequiredFieldsEnumsAndNestedArrays) {
+  const auto* rules = FindCDPParamRules("Input.emulateTouchFromMouseEvent");
+  ASSERT_NE(rules, nullptr);
+  Json::Value params;
+  params["type"] = "mousePressed";
+  params["button"] = "left";
+  params["x"] = 1;
+  std::string error;
+  EXPECT_FALSE(ValidateCDPParams(params, *rules, error));
+  params["y"] = 1;
+  EXPECT_TRUE(ValidateCDPParams(params, *rules, error));
+  params["type"] = "unknown";
+  EXPECT_FALSE(ValidateCDPParams(params, *rules, error));
+  rules = FindCDPParamRules("CSS.setStyleTexts");
+  ASSERT_NE(rules, nullptr);
+  params = Json::Value(Json::objectValue);
+  params["edits"][0]["styleSheetId"] = "sheet";
+  params["edits"][0]["text"] = "color: red";
+  auto& range = params["edits"][0]["range"];
+  range["startLine"] = range["endLine"] = 1;
+  range["startColumn"] = range["endColumn"] = 0;
+  EXPECT_TRUE(ValidateCDPParams(params, *rules, error));
+  range["endLine"] = "1";
+  EXPECT_FALSE(ValidateCDPParams(params, *rules, error));
+  EXPECT_NE(error.find("params.edits[0].range.endLine"), std::string::npos);
+  EXPECT_EQ(FindCDPParamRules("Input.typo"), nullptr);
+}
+
+TEST(CDPParamUtilsTest, SchemaSupportsUnionsMapsAndRecursiveReferences) {
+  const CDPParamSchema value{CDPParamType::kString | CDPParamType::kNull};
+  CDPParamSchema node{CDPParamType::kMap};
+  const CDPParamProperty properties[] = {{"next", &node, true}};
+  node.properties = properties;
+  node.property_count = 1;
+  node.values = &value;
+  const CDPParamRuleSet rules{"Test.map", &node};
+  std::string error;
+  Json::Value params;
+  params["first"] = Json::nullValue;
+  params["next"]["dynamic"] = "text";
+  EXPECT_TRUE(ValidateCDPParams(params, rules, error));
+  params["next"]["dynamic"] = 1;
+  EXPECT_FALSE(ValidateCDPParams(params, rules, error));
+  EXPECT_NE(error.find("params.next.dynamic"), std::string::npos);
+  Json::Value* nested = &params;
+  params = Json::Value(Json::objectValue);
+  for (int i = 0; i < 130; ++i) nested = &((*nested)["next"]);
+  *nested = Json::Value(Json::objectValue);
+  EXPECT_FALSE(ValidateCDPParams(params, rules, error));
+  EXPECT_NE(error.find("maximum schema depth"), std::string::npos);
+}
+
+TEST(CDPParamUtilsTest, ContractNumbersAreIndependentOfNativeConversionLimits) {
+  const CDPParamSchema integer{CDPParamType::kInteger};
+  const CDPParamRuleSet rules{"Test.integer", &integer};
+  std::string error;
+  EXPECT_TRUE(
+      ValidateCDPParams(Json::Value(Json::UInt64(1) << 40), rules, error));
+  EXPECT_TRUE(ValidateCDPParams(Json::Value(1.0), rules, error));
+  EXPECT_FALSE(ValidateCDPParams(Json::Value(1.5), rules, error));
+  EXPECT_FALSE(ValidateCDPParams(Json::Value(true), rules, error));
+  EXPECT_FALSE(ValidateCDPParams(
+      Json::Value(std::numeric_limits<double>::infinity()), rules, error));
+}
+
 TEST(CDPParamUtilsTest, ValidateNestedArraysBeforeConversions) {
   const std::initializer_list<CDPParamRule> rules = {
       {"edits", CDPParamType::kArray},

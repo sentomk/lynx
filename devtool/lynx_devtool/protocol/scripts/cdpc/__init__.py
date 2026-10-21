@@ -5,7 +5,7 @@
 """Contract model, checks and CLI. Module imports only point downward."""
 LAYERS = {
     'base': ['schema', 'model'],
-    'data': ['lint', 'inventory', 'emit'],
+    'data': ['lint', 'inventory', 'param_rules', 'emit'],
     'commands': ['trace', 'scaffold', 'upstream', 'capture'],
     'entry': ['__main__'],
 }

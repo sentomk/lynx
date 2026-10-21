@@ -22,6 +22,7 @@ base_devtool_shared_sources = [
   "abstract_devtool.cc",
   "cdp_domain_agent_base.cc",
   "cdp_param_utils.cc",
+  "cdp_param_rules.generated.cc",
   "cdp_traffic_observer.cc",
   "debug_router_message_subscriber.h",
   "devtool_global_slot.cc",

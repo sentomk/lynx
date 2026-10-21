@@ -65,5 +65,5 @@ class CliTest(RepoTest):
     def test_json_dry_run_is_one_json_document_and_writes_nothing(self):
         status, text = self.run_cli('write', '--dry-run', '--format', 'json')
         self.assertEqual(status, 0)
-        self.assertEqual(len(json.loads(text)['files']), 2)
+        self.assertEqual(len(json.loads(text)['files']), 3)
         self.assertFalse(self.repo.manifest.exists())

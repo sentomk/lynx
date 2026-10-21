@@ -9,12 +9,15 @@ import os
 import tempfile
 import yaml
 from cdpc.model import Diagnostic
+from cdpc import param_rules
 from cdpc.schema import references, example_request
 
 
-def contract_data(contract):
+def contract_data(contract, inventory=None):
     data = {'version': 2, 'types': {}, 'methods': {}, 'events': {}, 'examples': [],
             'unsupported': {'methods': [], 'events': []}}
+    if inventory is not None:
+        data['registeredMethods'] = sorted(inventory.methods)
     def include(schema):
         for ref in references(schema):
             if ref not in data['types']:
@@ -75,7 +78,8 @@ def manifest(repo, contract, inventory):
 
 def generate(repo, contract, inventory):
     return {repo.manifest: manifest(repo, contract, inventory),
-            repo.protocol / 'cdp_contract.generated.json': json.dumps(contract_data(contract), indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False) + '\n'}
+            repo.root / 'devtool/base_devtool/native/cdp_param_rules.generated.cc': param_rules.generate(contract, inventory),
+            repo.protocol / 'cdp_contract.generated.json': json.dumps(contract_data(contract, inventory), indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False) + '\n'}
 
 
 def check(repo, outputs):

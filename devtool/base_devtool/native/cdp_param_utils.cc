@@ -9,6 +9,7 @@
 #include <limits>
 #include <string>
 
+#include "base/include/log/logging.h"
 #include "base/include/string/string_number_convert.h"
 #include "devtool/base_devtool/native/public/cdp_responder.h"
 
@@ -40,6 +41,10 @@ bool CheckType(const Json::Value& value, CDPParamType type) {
       return value.isArray();
     case CDPParamType::kAny:
       return true;
+    case CDPParamType::kNull:
+      return value.isNull();
+    case CDPParamType::kMap:
+      return value.isObject();
   }
   return false;
 }
@@ -83,6 +88,118 @@ bool CheckPath(const Json::Value& parent, const std::string& remaining,
   return true;
 }
 }  // namespace
+
+namespace {
+bool HasType(CDPParamType types, CDPParamType type) {
+  return (static_cast<uint16_t>(types) & static_cast<uint16_t>(type)) != 0;
+}
+bool ValidateSchema(const Json::Value& value, const CDPParamSchema& schema,
+                    const std::string& path, std::string& error, int depth) {
+  auto fail = [&](const std::string& reason) {
+    error = "Invalid params: " + path + ": " + reason;
+    return false;
+  };
+  if (depth >= 128) return fail("maximum schema depth exceeded");
+  if (schema.ref)
+    return ValidateSchema(value, *schema.ref, path, error, depth + 1);
+  double number = 0;
+  const bool numeric = ReadFiniteNumberParam(value, number);
+  const bool integer =
+      value.type() == Json::intValue || value.type() == Json::uintValue ||
+      (value.type() == Json::realValue && numeric &&
+       std::floor(number) == number && number >= -9223372036854775808.0 &&
+       number < 18446744073709551616.0);
+  const auto types = schema.types;
+  const bool matches =
+      HasType(types, CDPParamType::kAny) ||
+      (HasType(types, CDPParamType::kInteger) && integer) ||
+      (HasType(types, CDPParamType::kNumber) && numeric) ||
+      (HasType(types, CDPParamType::kBoolean) && value.isBool()) ||
+      (HasType(types, CDPParamType::kString) && value.isString()) ||
+      ((HasType(types, CDPParamType::kObject) ||
+        HasType(types, CDPParamType::kMap)) &&
+       value.isObject()) ||
+      (HasType(types, CDPParamType::kArray) && value.isArray()) ||
+      (HasType(types, CDPParamType::kNull) && value.isNull());
+  if (!matches) return fail("incompatible type or numeric range");
+  if (value.isString() && schema.enum_values) {
+    bool found = false;
+    for (size_t i = 0; i < schema.enum_count; ++i)
+      if (value.asString() == schema.enum_values[i]) found = true;
+    if (!found) return fail("value is not allowed by enum");
+  }
+  if (value.isArray() && schema.items) {
+    for (Json::ArrayIndex i = 0; i < value.size(); ++i)
+      if (!ValidateSchema(value[i], *schema.items,
+                          path + "[" + std::to_string(i) + "]", error,
+                          depth + 1))
+        return false;
+  }
+  if (value.isObject()) {
+    for (size_t i = 0; i < schema.property_count; ++i) {
+      const auto& property = schema.properties[i];
+      const auto child_path = path + "." + property.name;
+      if (!value.isMember(property.name)) {
+        if (!property.optional) return fail("missing " + child_path);
+      } else if (!ValidateSchema(value[property.name], *property.schema,
+                                 child_path, error, depth + 1)) {
+        return false;
+      }
+    }
+    if (schema.values) {
+      for (const auto& name : value.getMemberNames()) {
+        bool declared = false;
+        for (size_t i = 0; i < schema.property_count; ++i)
+          if (name == schema.properties[i].name) declared = true;
+        if (!declared && !ValidateSchema(value[name], *schema.values,
+                                         path + "." + name, error, depth + 1))
+          return false;
+      }
+    }
+  }
+  return true;
+}
+CDPErrorCode ValidateMethod(const Json::Value& params, std::string_view method,
+                            std::string& error) {
+  const auto* rules = FindCDPParamRules(method);
+  if (!rules) {
+    error = "Internal error: no parameter rules for " + std::string(method);
+    LOGE(error);
+    return CDPErrorCode::InternalError;
+  }
+  ValidateCDPParams(params, *rules, error);
+  return CDPErrorCode::InvalidParams;
+}
+}  // namespace
+
+bool ValidateCDPParams(const Json::Value& params, const CDPParamRuleSet& rules,
+                       std::string& error) {
+  error.clear();
+  const Json::Value empty(Json::objectValue);
+  const auto& value =
+      params.isNull() && (rules.params->types == CDPParamType::kObject ||
+                          rules.params->types == CDPParamType::kMap)
+          ? empty
+          : params;
+  return ValidateSchema(value, *rules.params, "params", error, 0);
+}
+bool CheckCDPParams(const std::shared_ptr<MessageSender>& sender,
+                    const Json::Value& message, std::string_view method) {
+  std::string error;
+  const auto code = ValidateMethod(message["params"], method, error);
+  if (error.empty()) return true;
+  sender->SendErrorResponse(message["id"].asInt64(), static_cast<int>(code),
+                            error);
+  return false;
+}
+bool CheckCDPParams(const std::shared_ptr<CDPResponder>& responder,
+                    const Json::Value& params, std::string_view method) {
+  std::string error;
+  const auto code = ValidateMethod(params, method, error);
+  if (error.empty()) return true;
+  responder->SendError(code, error);
+  return false;
+}
 
 bool ValidateCDPParams(const Json::Value& params,
                        std::initializer_list<CDPParamRule> rules,
