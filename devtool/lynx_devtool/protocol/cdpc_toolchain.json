@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "repository": "git@github.com:sentomk/cdpc.git",
+  "revision": "39fddf86b75a52cf936c1483b85be958df5a8da2",
+  "tool_version": "0.1.0",
+  "contract_format": 2,
+  "descriptor_format": 1
+}

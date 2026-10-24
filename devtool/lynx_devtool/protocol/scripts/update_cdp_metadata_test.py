@@ -29,6 +29,7 @@ class CdpMetadataScanTest(unittest.TestCase):
             source_root=root,
             domain_agent_dir=agents,
             primjs_protocols_source=primjs,
+            cdpc_report=root / "cdpc_report.json",
         )
 
     def test_scan_map_and_direct_dispatch_with_source_and_deduplication(self):
@@ -75,6 +76,37 @@ class CdpMetadataScanTest(unittest.TestCase):
         with self.assertRaisesRegex(
             update_cdp_metadata.MetadataError,
             r"duplicate method declaration for Sample\.method",
+        ):
+            update_cdp_metadata.scan_local_methods(self.paths)
+
+
+    def test_scan_cdpc_method_table(self):
+        self.paths.cdpc_report.write_text(
+            '{"methods": ["Sample.getInfo"]}', encoding="utf-8"
+        )
+        (self.paths.domain_agent_dir / "sample.cc").write_text(
+            "constexpr cdpc::Method<Handler> kMethods[] = {\n"
+            "    {cdpc::methods::kSampleGetInfo, &Handler::GetInfo},\n"
+            "};\n"
+            "static_assert(cdpc::methods::kContracts.size() == 1);\n",
+            encoding="utf-8",
+        )
+
+        self.assertIn(
+            update_cdp_metadata.LocalMethod("Sample", "getInfo", "agents/sample.cc"),
+            update_cdp_metadata.scan_local_methods(self.paths),
+        )
+
+    def test_reject_unknown_cdpc_method_constant(self):
+        self.paths.cdpc_report.write_text('{"methods": []}', encoding="utf-8")
+        (self.paths.domain_agent_dir / "sample.cc").write_text(
+            "{cdpc::methods::kSampleMissing, &Handler::Missing},\n",
+            encoding="utf-8",
+        )
+
+        with self.assertRaisesRegex(
+            update_cdp_metadata.MetadataError,
+            r"unknown CDPC method constant kSampleMissing",
         ):
             update_cdp_metadata.scan_local_methods(self.paths)
 

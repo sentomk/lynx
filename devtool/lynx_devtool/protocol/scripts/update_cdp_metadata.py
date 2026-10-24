@@ -32,6 +32,9 @@ CALL_METHOD_FUNCTION_RE = re.compile(
 DIRECT_METHOD_RE = re.compile(
     rf'\bif\s*\(\s*method\s*==\s*"({METHOD_NAME_PATTERN})"\s*\)'
 )
+# Static CDPC method tables reference generated contract constants;
+# kContracts is the catalog itself, not a method.
+CDPC_METHOD_RE = re.compile(r"\bcdpc::methods::(?!kContracts\b)(k[A-Za-z0-9_]+)\b")
 PRIMJS_FUNCTION_RE = re.compile(
     r"const\s+debug_function_type\s*&\s*GetDebugFunctionMap\s*\(\)\s*\{",
     re.MULTILINE,
@@ -61,6 +64,7 @@ class Paths:
     registration_source: Path
     primjs_protocols_source: Path
     lynx_config_source: Path
+    cdpc_report: Path
 
 
 @dataclass(frozen=True)
@@ -149,6 +153,9 @@ def get_paths() -> Paths:
         / "inspector"
         / "protocols.cc",
         lynx_config_source=source_root / "core" / "renderer" / "tasm" / "config.h",
+        cdpc_report=protocol_dir
+        / "generated"
+        / "cdpc_runtime_report.generated.json",
     )
 
 
@@ -274,12 +281,20 @@ def scan_local_methods(paths: Paths) -> list[LocalMethod]:
     if not paths.domain_agent_dir.exists():
         raise MetadataError(f"missing domain agent directory: {paths.domain_agent_dir}")
 
+    cdpc_methods = load_cdpc_method_symbols(paths.cdpc_report)
     methods: dict[tuple[str, str], LocalMethod] = {}
     for source_file in sorted(paths.domain_agent_dir.glob("*.cc")):
         if source_file.name.endswith("_unittest.cc"):
             continue
         text = source_file.read_text(encoding="utf-8")
         declared_methods = METHOD_RE.findall(text)
+        for symbol in CDPC_METHOD_RE.findall(text):
+            if symbol not in cdpc_methods:
+                raise MetadataError(
+                    f"unknown CDPC method constant {symbol} in {source_file}; "
+                    "run tools/cdpc write for its method first"
+                )
+            declared_methods.append(cdpc_methods[symbol])
         for match in CALL_METHOD_FUNCTION_RE.finditer(text):
             body = extract_braced_block(text, match.end() - 1)
             declared_methods.extend(DIRECT_METHOD_RE.findall(body))
@@ -294,6 +309,25 @@ def scan_local_methods(paths: Paths) -> list[LocalMethod]:
     scan_primjs_methods(paths, methods)
 
     return [methods[key] for key in sorted(methods)]
+
+
+def load_cdpc_method_symbols(report_path: Path) -> dict[str, str]:
+    """Maps generated cdpc::methods constants to CDP method names."""
+    if not report_path.exists():
+        return {}
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        names = report["methods"]
+    except (ValueError, KeyError, TypeError) as exc:
+        raise MetadataError(f"invalid CDPC report {report_path}: {exc}") from exc
+    symbols: dict[str, str] = {}
+    for name in names:
+        if not isinstance(name, str) or not re.fullmatch(METHOD_NAME_PATTERN, name):
+            raise MetadataError(f"invalid CDPC method name in {report_path}: {name!r}")
+        # Same spelling as cdpc_lynx.cpp.contract_symbol.
+        domain, leaf = name.split(".", 1)
+        symbols["k" + domain + leaf[0].upper() + leaf[1:]] = name
+    return symbols
 
 
 def scan_primjs_methods(

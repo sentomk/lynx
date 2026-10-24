@@ -1,0 +1,28 @@
+# Copyright 2026 The Lynx Authors. All rights reserved.
+# Licensed under the Apache License Version 2.0 that can be found in the
+# LICENSE file in the root directory of this source tree.
+import("../devtool.gni")
+
+config("cdpc_public_config") {
+  # CDPC headers include "cdpc/..." and "json/json.h". JsonCpp keeps Lynx's
+  # existing configuration, so no JsonCpp defines are added here.
+  include_dirs = [
+    "../../../third_party/cdpc/include",
+    "../../../third_party/jsoncpp/include",
+  ]
+}
+
+devtool_source_set("cdpc_runtime") {
+  sources = [
+    "../../../third_party/cdpc/src/contract.cc",
+    "../../../third_party/cdpc/src/diagnostic.cc",
+    "../../../third_party/cdpc/src/event.cc",
+    "../../../third_party/cdpc/src/params.cc",
+    "../../../third_party/cdpc/src/reply.cc",
+    "generated/cdpc_contracts.generated.h",
+    "generated/cdpc_dispatch.generated.h",
+    "generated/cdpc_fwd.generated.h",
+  ]
+  public_configs = [ ":cdpc_public_config" ]
+  public_deps = [ "../../base_devtool/native:base_devtool" ]
+}

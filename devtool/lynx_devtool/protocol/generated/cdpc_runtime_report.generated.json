@@ -1,0 +1,13 @@
+{
+  "events": [],
+  "generator": {
+    "adapter_version": 2,
+    "tool_version": "0.1.0"
+  },
+  "input_graph_sha256": "eed81063ca9aec32151ccb07bc78627fa8c2eec66ab35bbd91ab1acb872f9150",
+  "methods": [
+    "SystemInfo.getInfo"
+  ],
+  "omitted": [],
+  "version": 2
+}

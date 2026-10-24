@@ -165,6 +165,7 @@ devtool_source_set("agent") {
     "//third_party/modp_b64",
     "//third_party/zlib",
   ]
+  public_deps = [ "../protocol:cdpc_runtime" ]
   public_configs = [ ":common_config" ]
 }
 

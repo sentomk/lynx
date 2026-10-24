@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# CDPC entry point owned and committed by the Lynx consumer.
+set -e
+CDPC_LYNX_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CDPC_PYTHON=python3
+if [[ -x "${CDPC_LYNX_ROOT}/.venv/bin/python3" ]]; then
+  CDPC_PYTHON="${CDPC_LYNX_ROOT}/.venv/bin/python3"
+fi
+exec "${CDPC_LYNX_ROOT}/tools/env.sh" "${CDPC_PYTHON}" -B "${CDPC_LYNX_ROOT}/tools/cdpc.py" "$@"

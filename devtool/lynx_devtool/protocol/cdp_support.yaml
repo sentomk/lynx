@@ -1,0 +1,16 @@
+SystemInfo:
+  deviations:
+    - target: getInfo.returns.gpu
+      kind: omitted
+      reason: Lynx does not collect GPU information.
+    - target: getInfo.returns.modelVersion
+      kind: omitted
+      reason: Lynx reports only the device model name.
+    - target: getInfo.returns.commandLine
+      kind: omitted
+      reason: Lynx has no browser process command line.
+    - target: getInfo.returns.platform
+      kind: added
+      as:
+        type: string
+      reason: Lynx DevTool frontends use the host platform name.

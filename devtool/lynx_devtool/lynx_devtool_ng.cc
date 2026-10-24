@@ -4,6 +4,10 @@
 // cspell:ignore lynxsetting lynxnativemodule hsr
 #include "devtool/lynx_devtool/lynx_devtool_ng.h"
 
+#include <string_view>
+
+#include "base/include/log/logging.h"
+#include "cdpc/diagnostic.h"
 #include "core/devtool_wrapper/devtool_pool.h"
 #include "core/services/recorder/record_payload.h"
 #include "core/shell/lynx_shell.h"
@@ -64,6 +68,10 @@ LynxDevToolNG::LynxDevToolNG(bool debuggable)
     : devtool_mediator_(std::make_shared<LynxDevToolMediator>()) {
   static std::once_flag flag;
   std::call_once(flag, [] {
+    cdpc::SetDiagnosticSink([](std::string_view message) {
+      LOGE("[CDPC] " << std::string(message));
+    });
+
     auto& global_dispatcher =
         lynx::devtool::AbstractDevTool::GetGlobalMessageDispatcherInstance();
 

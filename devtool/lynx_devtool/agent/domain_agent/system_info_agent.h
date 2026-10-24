@@ -5,11 +5,9 @@
 #ifndef DEVTOOL_LYNX_DEVTOOL_AGENT_DOMAIN_AGENT_SYSTEM_INFO_AGENT_H_
 #define DEVTOOL_LYNX_DEVTOOL_AGENT_DOMAIN_AGENT_SYSTEM_INFO_AGENT_H_
 
-#include <map>
-#include <string>
+#include <memory>
 
 #include "devtool/base_devtool/native/public/cdp_domain_agent_base.h"
-#include "devtool/lynx_devtool/agent/agent_defines.h"
 
 namespace lynx {
 namespace devtool {
@@ -17,18 +15,10 @@ namespace devtool {
 class SystemInfoAgent : public CDPDomainAgentBase {
  public:
   SystemInfoAgent();
-  virtual ~SystemInfoAgent();
+  ~SystemInfoAgent() override;
+
   void CallMethod(const std::shared_ptr<CDPResponder>& responder,
                   const Json::Value& message) override;
-
- private:
-  using SystemInfoAgentMethod =
-      void (SystemInfoAgent::*)(const std::shared_ptr<CDPResponder>& responder,
-                                const Json::Value& params);
-
-  DECLARE_DEVTOOL_CDP_METHOD(getInfo);
-
-  std::map<std::string, SystemInfoAgentMethod> functions_map_;
 };
 
 }  // namespace devtool

@@ -7,6 +7,8 @@
 #include <utility>
 
 #include "base/trace/native/trace_event.h"
+#include "cdpc/params.h"
+#include "cdpc/reply.h"
 #include "core/runtime/js/runtime_constant.h"
 #include "core/runtime/profile/runtime_profiler_manager.h"
 #include "core/services/recorder/recorder_controller.h"
@@ -393,8 +395,8 @@ void LynxGlobalDevToolMediator::MemoryGetAllMemoryUsage(
   });
 }
 
-void LynxGlobalDevToolMediator::SystemInfoGetInfo(
-    const std::shared_ptr<CDPResponder>& responder, const Json::Value&) {
+void LynxGlobalDevToolMediator::SystemInfoGetInfo(cdpc::Reply reply,
+                                                  cdpc::Params) {
   Json::Value result(Json::ValueType::objectValue);
   result["modelName"] =
       GlobalDevToolPlatformFacade::GetInstance().GetSystemModelName();
@@ -408,7 +410,7 @@ void LynxGlobalDevToolMediator::SystemInfoGetInfo(
 #else
   result["platform"] = "iOS";
 #endif
-  responder->SendSuccess(std::move(result));
+  reply.SendSuccess(std::move(result));
 }
 
 void LynxGlobalDevToolMediator::TracingStart(

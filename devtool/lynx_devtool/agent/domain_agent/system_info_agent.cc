@@ -6,31 +6,30 @@
 
 #include "devtool/base_devtool/native/public/cdp_responder.h"
 #include "devtool/lynx_devtool/agent/lynx_global_devtool_mediator.h"
+#include "devtool/lynx_devtool/protocol/generated/cdpc_contracts.generated.h"
+#include "devtool/lynx_devtool/protocol/generated/cdpc_dispatch.generated.h"
 
 namespace lynx {
 namespace devtool {
 
-SystemInfoAgent::SystemInfoAgent() {
-  functions_map_["SystemInfo.getInfo"] = &SystemInfoAgent::getInfo;
-}
+namespace {
+
+constexpr cdpc::Method<LynxGlobalDevToolMediator> kMethods[] = {
+    {cdpc::methods::kSystemInfoGetInfo,
+     &LynxGlobalDevToolMediator::SystemInfoGetInfo},
+};
+static_assert(cdpc::HasValidBindings(kMethods));
+
+}  // namespace
+
+SystemInfoAgent::SystemInfoAgent() = default;
 
 SystemInfoAgent::~SystemInfoAgent() = default;
 
 void SystemInfoAgent::CallMethod(const std::shared_ptr<CDPResponder>& responder,
                                  const Json::Value& message) {
-  std::string method = message["method"].asString();
-  auto iter = functions_map_.find(method);
-  if (iter != functions_map_.end()) {
-    (this->*(iter->second))(responder, message["params"]);
-  } else {
-    responder->SendError(CDPErrorCode::MethodNotFound,
-                         "'" + method + "' wasn't found");
-  }
-}
-
-void SystemInfoAgent::getInfo(const std::shared_ptr<CDPResponder>& responder,
-                              const Json::Value& params) {
-  LynxGlobalDevToolMediator::GetInstance().SystemInfoGetInfo(responder, params);
+  DispatchCDPMethod(kMethods, LynxGlobalDevToolMediator::GetInstance(),
+                    responder, message);
 }
 
 }  // namespace devtool

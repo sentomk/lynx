@@ -1,3 +1,4 @@
+import json
 import os
 import platform
 import sys
@@ -5,6 +6,10 @@ import zipfile
 sys.path.insert(0, root_dir)
 sys.path.append(os.path.join(root_dir, '..', 'lynx'))
 import dependencies.revision as revision
+
+with open(os.path.join(root_dir, 'devtool', 'lynx_devtool', 'protocol',
+                       'cdpc_toolchain.json'), encoding='utf-8') as cdpc_pin:
+    CDPC_PIN = json.load(cdpc_pin)
 
 
 system = platform.system().lower()
@@ -133,6 +138,13 @@ deps = {
         'url': 'https://github.com/iqiyi/xHook.git',
         'commit': revision.XHOOK,
         "patches": os.path.join(root_dir, 'patches', 'xhook', '*.patch'),
+        "ignore_in_git": True,
+    },
+    # tools/cdpc checks this checkout against the same pin.
+    "third_party/cdpc": {
+        'type': 'git',
+        'url': CDPC_PIN['repository'],
+        'commit': CDPC_PIN['revision'],
         "ignore_in_git": True,
     },
     'change_executable_permission': {

@@ -16,6 +16,7 @@
 #include "devtool/base_devtool/native/public/message_sender.h"
 #include "devtool/lynx_devtool/agent/agent_defines.h"
 #include "devtool/lynx_devtool/agent/lynx_devtool_mediator_base.h"
+#include "devtool/lynx_devtool/protocol/generated/cdpc_fwd.generated.h"
 
 namespace lynx {
 namespace devtool {
@@ -59,7 +60,7 @@ class LynxGlobalDevToolMediator : public LynxDevToolMediatorBase {
   DECLARE_DEVTOOL_METHOD(TakeVMSnapshotByUrl)
 
   // System Info domain
-  DECLARE_DEVTOOL_CDP_METHOD(SystemInfoGetInfo);
+  void SystemInfoGetInfo(cdpc::Reply reply, cdpc::Params params);
 
  protected:
   // Whether the recorder is compiled into this build; fixture/both formats
